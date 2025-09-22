@@ -1,11 +1,11 @@
 [package]
-name    = "ieee802154-sniffer"
+name = "ieee802154-sniffer"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
 [dependencies]
-cfg-if = "1.0.0"
+cfg_if = "1"
 esp-alloc = { path = "../../../esp-alloc" }
 esp-backtrace = { path = "../../../esp-backtrace", features = [
     "panic-handler",
@@ -35,7 +35,7 @@ esp32h2 = [
 ]
 
 [profile.release]
-debug            = true
+debug = true
 debug-assertions = true
-lto              = "fat"
-codegen-units    = 1
+lto = "fat"
+codegen-units = 1

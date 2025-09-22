@@ -13,23 +13,27 @@ license = "MIT OR Apache-2.0"
 [package.metadata.espressif]
 doc-config = { features = ["defmt", "validation"] }
 check-configs = [
-    { features = [] },
-    { features = ["log-04"] },
-    { features = ["defmt", "validation"] },
+    { features = [
+    ] },
+    { features = [
+        "log-04",
+    ] },
+    { features = [
+        "defmt",
+        "validation",
+    ] },
 ]
-clippy-configs = [
-    { features = ["defmt", "validation"] },
-]
+clippy-configs = [{ features = ["defmt", "validation"] }]
 
 [package.metadata.docs.rs]
 default-target = "riscv32imac-unknown-none-elf"
 
 [lib]
 bench = false
-test  = true
+test = true
 
 [dependencies]
-cfg-if = "1.0.0"
+cfg_if = "1"
 defmt = { version = "1.0.1", optional = true }
 document-features = "0.2.11"
 esp-config = { version = "0.5.0", path = "../esp-config" }
@@ -42,7 +46,7 @@ crc = { version = "3.3.0", optional = true }
 md-5 = { version = "0.10.6", default-features = false, optional = true }
 
 [build-dependencies]
-jiff       = { version = "0.2.13", default-features = false, features = ["std"] }
+jiff = { version = "0.2.13", default-features = false, features = ["std"] }
 esp-config = { version = "0.5.0", path = "../esp-config", features = ["build"] }
 
 [features]
@@ -64,19 +68,19 @@ std = ["dep:crc", "dep:md-5"]
 #! One of the following features must be enabled to select the target chip:
 
 ##
-esp32c2   = ["esp-rom-sys/esp32c2"]
+esp32c2 = ["esp-rom-sys/esp32c2"]
 ##
-esp32c3   = ["esp-rom-sys/esp32c3"]
+esp32c3 = ["esp-rom-sys/esp32c3"]
 ##
-esp32c6   = ["esp-rom-sys/esp32c6"]
+esp32c6 = ["esp-rom-sys/esp32c6"]
 ##
-esp32h2   = ["esp-rom-sys/esp32h2"]
+esp32h2 = ["esp-rom-sys/esp32h2"]
 ##
-esp32     = ["esp-rom-sys/esp32"]
+esp32 = ["esp-rom-sys/esp32"]
 ##
-esp32s2   = ["esp-rom-sys/esp32s2"]
+esp32s2 = ["esp-rom-sys/esp32s2"]
 ##
-esp32s3   = ["esp-rom-sys/esp32s3"]
+esp32s3 = ["esp-rom-sys/esp32s3"]
 
 # "md-5" is hidden behind `std` feature and `cargo machete` incorrectly marks it as unused.
 [package.metadata.cargo-machete]

@@ -1,11 +1,11 @@
 [package]
-name    = "ota_update"
+name = "ota_update"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
 [dependencies]
-cfg-if = "1.0.0"
+cfg_if = "1"
 embedded-storage = "0.3.1"
 esp-backtrace = { path = "../../../esp-backtrace", features = [
     "panic-handler",
@@ -61,7 +61,7 @@ esp32s3 = [
 ]
 
 [profile.release]
-debug            = true
+debug = true
 debug-assertions = true
-lto              = "fat"
-codegen-units    = 1
+lto = "fat"
+codegen-units = 1
