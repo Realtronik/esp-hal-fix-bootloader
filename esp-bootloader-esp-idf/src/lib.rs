@@ -105,6 +105,8 @@ pub mod partitions;
 
 pub mod ota;
 
+pub mod ota_updater;
+
 // We run tests on the host which happens to be MacOS machines and mach-o
 // doesn't like `link-sections` this way
 #[cfg(not(target_os = "macos"))]
@@ -153,7 +155,7 @@ pub struct EspAppDesc {
 impl EspAppDesc {
     /// Needs to be public since it's used by the macro
     #[doc(hidden)]
-    #[allow(clippy::too_many_arguments, reason = "For internal use only")]
+    #[expect(clippy::too_many_arguments, reason = "For internal use only")]
     pub const fn new_internal(
         version: &str,
         project_name: &str,
@@ -311,7 +313,7 @@ const fn str_to_cstr_array<const C: usize>(s: &str) -> [::core::ffi::c_char; C] 
     loop {
         ret[i] = bytes[i] as _;
         i += 1;
-        if i >= bytes.len() {
+        if i >= bytes.len() || i >= C {
             break;
         }
     }
@@ -339,7 +341,7 @@ pub const MMU_PAGE_SIZE: u32 = {
 
 /// The (pretended) ESP-IDF version
 pub const ESP_IDF_COMPATIBLE_VERSION: &str =
-    esp_config::esp_config_str!("ESP_BOOTLOADER_ESP_IDF_CONFIG_MMU_PAGE_SIZE");
+    esp_config::esp_config_str!("ESP_BOOTLOADER_ESP_IDF_CONFIG_ESP_IDF_VERSION");
 
 /// This macro populates the application descriptor (see [EspAppDesc]) which is
 /// available as a static named `ESP_APP_DESC`

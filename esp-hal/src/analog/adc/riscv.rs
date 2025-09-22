@@ -39,7 +39,6 @@ mod calibration;
 // https://github.com/espressif/esp-idf/blob/903af13e8/components/soc/esp32c3/include/soc/regi2c_saradc.h
 // https://github.com/espressif/esp-idf/blob/903af13e8/components/soc/esp32c6/include/soc/regi2c_saradc.h
 // https://github.com/espressif/esp-idf/blob/903af13e8/components/soc/esp32h2/include/soc/regi2c_saradc.h
-// https://github.com/espressif/esp-idf/blob/903af13e8/components/soc/esp32h4/include/soc/regi2c_saradc.h
 cfg_if::cfg_if! {
     if #[cfg(adc_adc1)] {
         const ADC_VAL_MASK: u16 = 0xfff;
@@ -342,20 +341,23 @@ where
         PIN: super::AdcChannel,
         CS: super::AdcCalScheme<ADCI>,
     {
-        if self.attenuations[PIN::CHANNEL as usize].is_none() {
-            panic!("Channel {} is not configured reading!", PIN::CHANNEL);
+        if self.attenuations[pin.pin.adc_channel() as usize].is_none() {
+            panic!(
+                "Channel {} is not configured reading!",
+                pin.pin.adc_channel()
+            );
         }
 
         if let Some(active_channel) = self.active_channel {
             // There is conversion in progress:
             // - if it's for a different channel try again later
             // - if it's for the given channel, go ahead and check progress
-            if active_channel != PIN::CHANNEL {
+            if active_channel != pin.pin.adc_channel() {
                 return Err(nb::Error::WouldBlock);
             }
         } else {
             // If no conversions are in progress, start a new one for given channel
-            self.active_channel = Some(PIN::CHANNEL);
+            self.active_channel = Some(pin.pin.adc_channel());
 
             // Set ADC unit calibration according used scheme for pin
             ADCI::set_init_code(pin.cal_scheme.adc_cal());
@@ -449,66 +451,6 @@ impl super::AdcCalEfuse for crate::peripherals::ADC2<'_> {
     }
 }
 
-#[cfg(esp32c2)]
-mod adc_implementation {
-    crate::analog::adc::impl_adc_interface! {
-        ADC1 [
-            (GPIO0<'_>, 0),
-            (GPIO1<'_>, 1),
-            (GPIO2<'_>, 2),
-            (GPIO3<'_>, 3),
-            (GPIO4<'_>, 4),
-        ]
-    }
-}
-
-#[cfg(esp32c3)]
-mod adc_implementation {
-    crate::analog::adc::impl_adc_interface! {
-        ADC1 [
-            (GPIO0<'_>, 0),
-            (GPIO1<'_>, 1),
-            (GPIO2<'_>, 2),
-            (GPIO3<'_>, 3),
-            (GPIO4<'_>, 4),
-        ]
-    }
-
-    crate::analog::adc::impl_adc_interface! {
-        ADC2 [
-            (GPIO5<'_>, 0),
-        ]
-    }
-}
-
-#[cfg(esp32c6)]
-mod adc_implementation {
-    crate::analog::adc::impl_adc_interface! {
-        ADC1 [
-            (GPIO0<'_>, 0),
-            (GPIO1<'_>, 1),
-            (GPIO2<'_>, 2),
-            (GPIO3<'_>, 3),
-            (GPIO4<'_>, 4),
-            (GPIO5<'_>, 5),
-            (GPIO6<'_>, 6),
-        ]
-    }
-}
-
-#[cfg(esp32h2)]
-mod adc_implementation {
-    crate::analog::adc::impl_adc_interface! {
-        ADC1 [
-            (GPIO1<'_>, 0),
-            (GPIO2<'_>, 1),
-            (GPIO3<'_>, 2),
-            (GPIO4<'_>, 3),
-            (GPIO5<'_>, 4),
-        ]
-    }
-}
-
 impl<'d, ADCI> Adc<'d, ADCI, Async>
 where
     ADCI: RegisterAccess + 'd,
@@ -541,7 +483,7 @@ where
         PIN: super::AdcChannel,
         CS: super::AdcCalScheme<ADCI>,
     {
-        let channel = PIN::CHANNEL;
+        let channel = pin.pin.adc_channel();
         if self.attenuations[channel as usize].is_none() {
             panic!("Channel {} is not configured reading!", channel);
         }
@@ -611,16 +553,16 @@ pub(crate) fn adc_interrupt_handler() {
 
 fn handle_async<ADCI: Instance>(_instance: ADCI) {
     ADCI::waker().wake();
-    ADCI::disable_interrupt();
+    ADCI::unlisten();
 }
 
 /// Enable asynchronous access.
 pub trait Instance: crate::private::Sealed {
     /// Enable the ADC interrupt
-    fn enable_interrupt();
+    fn listen();
 
     /// Disable the ADC interrupt
-    fn disable_interrupt();
+    fn unlisten();
 
     /// Clear the ADC interrupt
     fn clear_interrupt();
@@ -631,13 +573,13 @@ pub trait Instance: crate::private::Sealed {
 
 #[cfg(adc_adc1)]
 impl Instance for crate::peripherals::ADC1<'_> {
-    fn enable_interrupt() {
+    fn listen() {
         APB_SARADC::regs()
             .int_ena()
             .modify(|_, w| w.adc1_done().set_bit());
     }
 
-    fn disable_interrupt() {
+    fn unlisten() {
         APB_SARADC::regs()
             .int_ena()
             .modify(|_, w| w.adc1_done().clear_bit());
@@ -658,13 +600,13 @@ impl Instance for crate::peripherals::ADC1<'_> {
 
 #[cfg(adc_adc2)]
 impl Instance for crate::peripherals::ADC2<'_> {
-    fn enable_interrupt() {
+    fn listen() {
         APB_SARADC::regs()
             .int_ena()
             .modify(|_, w| w.adc2_done().set_bit());
     }
 
-    fn disable_interrupt() {
+    fn unlisten() {
         APB_SARADC::regs()
             .int_ena()
             .modify(|_, w| w.adc2_done().clear_bit());
@@ -705,7 +647,7 @@ impl<ADCI: Instance + super::RegisterAccess> core::future::Future for AdcFuture<
             Poll::Ready(())
         } else {
             ADCI::waker().register(cx.waker());
-            ADCI::enable_interrupt();
+            ADCI::listen();
             Poll::Pending
         }
     }
@@ -713,6 +655,6 @@ impl<ADCI: Instance + super::RegisterAccess> core::future::Future for AdcFuture<
 
 impl<ADCI: Instance> Drop for AdcFuture<ADCI> {
     fn drop(&mut self) {
-        ADCI::disable_interrupt();
+        ADCI::unlisten();
     }
 }

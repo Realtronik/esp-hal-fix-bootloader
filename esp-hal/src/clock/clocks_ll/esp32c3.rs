@@ -36,26 +36,6 @@ pub(crate) fn esp32c3_rtc_bbpll_configure(xtal_freq: XtalClock, pll_freq: PllClo
                 dcur = 3;
                 dbias = 2;
             }
-
-            XtalClock::_32M => {
-                div_ref = 1;
-                div7_0 = 26;
-                dr1 = 1;
-                dr3 = 1;
-                dchgp = 4;
-                dcur = 0;
-                dbias = 2;
-            }
-
-            XtalClock::Other(_) => {
-                div_ref = 0;
-                div7_0 = 8;
-                dr1 = 0;
-                dr3 = 0;
-                dchgp = 5;
-                dcur = 3;
-                dbias = 2;
-            }
         }
 
         regi2c::I2C_BBPLL_REG4.write_reg(0x6b);
@@ -63,26 +43,6 @@ pub(crate) fn esp32c3_rtc_bbpll_configure(xtal_freq: XtalClock, pll_freq: PllClo
         // Configure 320M PLL
         match xtal_freq {
             XtalClock::_40M => {
-                div_ref = 0;
-                div7_0 = 4;
-                dr1 = 0;
-                dr3 = 0;
-                dchgp = 5;
-                dcur = 3;
-                dbias = 2;
-            }
-
-            XtalClock::_32M => {
-                div_ref = 1;
-                div7_0 = 6;
-                dr1 = 0;
-                dr3 = 0;
-                dchgp = 5;
-                dcur = 3;
-                dbias = 2;
-            }
-
-            XtalClock::Other(_) => {
                 div_ref = 0;
                 div7_0 = 4;
                 dr1 = 0;
@@ -161,7 +121,7 @@ pub(crate) fn esp32c3_rtc_apb_freq_update(apb_freq: ApbClock) {
 
     LPWR::regs()
         .store5()
-        .modify(|_, w| unsafe { w.scratch5().bits(value) });
+        .modify(|_, w| unsafe { w.data().bits(value) });
 }
 
 // Mask for clock bits used by both WIFI and Bluetooth, 0, 1, 2, 3, 7, 8, 9, 10,

@@ -1,8 +1,32 @@
-#![allow(rustdoc::bare_urls, unused_macros)]
+//! ## Feature Flags
+#![doc = document_features::document_features!()]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
-#![doc = include_str!("../README.md")]
+//! This is a lightweight crate for obtaining backtraces during panics, exceptions, and hard faults
+//! on Espressif devices. It provides optional panic and exception handlers and supports a range of
+//! output options, all configurable through feature flags.
+#![cfg_attr(
+    target_arch = "riscv32",
+    doc = "Please note that you **need** to force frame pointers (i.e. `\"-C\", \"force-frame-pointers\",` in your `.cargo/config.toml`)"
+)]
+//! You can get an array of backtrace addresses (limited to 10 entries by default) via
+//! `arch::backtrace()` if you want to create a backtrace yourself (i.e. not using the panic or
+//! exception handler).
+//!
+//! ## Features
+#![doc = document_features::document_features!()]
+//! ## Additional configuration
+//!
+//! We've exposed some configuration options that don't fit into cargo
+//! features. These can be set via environment variables, or via cargo's `[env]`
+//! section inside `.cargo/config.toml`. Below is a table of tunable parameters
+//! for this crate:
+#![doc = ""]
+#![doc = include_str!(concat!(env!("OUT_DIR"), "/esp_backtrace_config_table.md"))]
 #![doc(html_logo_url = "https://avatars.githubusercontent.com/u/46717278")]
 #![no_std]
+
+#[macro_use]
+extern crate esp_metadata_generated;
 
 #[cfg(feature = "defmt")]
 use defmt as _;
@@ -19,12 +43,6 @@ impl Backtrace {
     #[inline]
     pub fn capture() -> Self {
         arch::backtrace()
-    }
-
-    #[inline]
-    #[cfg(feature = "exception-handler")]
-    fn from_sp(sp: u32) -> Self {
-        arch::backtrace_internal(sp, 0)
     }
 
     /// Returns the backtrace frames as a slice.
@@ -44,28 +62,30 @@ impl BacktraceFrame {
     }
 }
 
+#[cfg(feature = "panic-handler")]
 const RESET: &str = "\u{001B}[0m";
+#[cfg(feature = "panic-handler")]
 const RED: &str = "\u{001B}[31m";
 
-#[cfg(feature = "defmt")]
+#[cfg(all(feature = "panic-handler", feature = "defmt"))]
 macro_rules! println {
     ($($arg:tt)*) => {
         defmt::error!($($arg)*);
     };
 }
 
-#[cfg(all(feature = "println", not(feature = "defmt")))]
+#[cfg(all(feature = "panic-handler", feature = "println"))]
 macro_rules! println {
     ($($arg:tt)*) => {
         esp_println::println!($($arg)*);
     };
 }
 
-#[allow(unused, unused_variables)]
-fn set_color_code(code: &str) {
+#[cfg(feature = "panic-handler")]
+fn set_color_code(_code: &str) {
     #[cfg(all(feature = "colors", feature = "println"))]
     {
-        println!("{}", code);
+        println!("{}", _code);
     }
 }
 
@@ -78,10 +98,12 @@ pub mod arch;
 fn panic_handler(info: &core::panic::PanicInfo) -> ! {
     pre_backtrace();
 
+    set_color_code(RED);
     println!("");
     println!("====================== PANIC ======================");
 
     println!("{}", info);
+    set_color_code(RESET);
 
     println!("");
     println!("Backtrace:");
@@ -98,194 +120,54 @@ fn panic_handler(info: &core::panic::PanicInfo) -> ! {
         println!("0x{:x}", frame.program_counter());
     }
 
-    abort();
+    abort()
 }
 
-#[cfg(all(feature = "exception-handler", target_arch = "xtensa"))]
-#[unsafe(no_mangle)]
-#[unsafe(link_section = ".rwtext")]
-unsafe fn __user_exception(cause: arch::ExceptionCause, context: arch::Context) {
-    pre_backtrace();
-
-    println!("\n\nException occurred '{}'", cause);
-    println!("{:?}", context);
-
-    let backtrace = Backtrace::from_sp(context.A1);
-    for frame in backtrace.frames() {
-        println!("0x{:x}", frame.program_counter());
-    }
-
-    abort();
+// Ensure that the address is in DRAM.
+//
+// Address ranges can be found in `esp-metadata/devices/$CHIP.toml` in the `device` table.
+fn is_valid_ram_address(address: u32) -> bool {
+    memory_range!("DRAM").contains(&address)
 }
 
-#[cfg(all(feature = "exception-handler", target_arch = "riscv32"))]
-#[unsafe(export_name = "ExceptionHandler")]
-fn exception_handler(context: &arch::TrapFrame) -> ! {
-    pre_backtrace();
+#[cfg(feature = "halt-cores")]
+fn halt() {
+    #[cfg(any(feature = "esp32", feature = "esp32s3"))]
+    {
+        #[cfg(feature = "esp32")]
+        mod registers {
+            pub(crate) const OPTIONS0: u32 = 0x3ff48000;
+            pub(crate) const SW_CPU_STALL: u32 = 0x3ff480ac;
+        }
 
-    let mepc = context.pc;
-    let code = context.mcause & 0xff;
-    let mtval = context.mtval;
+        #[cfg(feature = "esp32s3")]
+        mod registers {
+            pub(crate) const OPTIONS0: u32 = 0x60008000;
+            pub(crate) const SW_CPU_STALL: u32 = 0x600080bc;
+        }
 
-    if code == 14 {
-        println!("");
-        println!(
-            "Stack overflow detected at 0x{:x} called by 0x{:x}",
-            mepc, context.ra
-        );
-        println!("");
-    } else {
-        let code = match code {
-            0 => "Instruction address misaligned",
-            1 => "Instruction access fault",
-            2 => "Illegal instruction",
-            3 => "Breakpoint",
-            4 => "Load address misaligned",
-            5 => "Load access fault",
-            6 => "Store/AMO address misaligned",
-            7 => "Store/AMO access fault",
-            8 => "Environment call from U-mode",
-            9 => "Environment call from S-mode",
-            10 => "Reserved",
-            11 => "Environment call from M-mode",
-            12 => "Instruction page fault",
-            13 => "Load page fault",
-            14 => "Reserved",
-            15 => "Store/AMO page fault",
-            _ => "UNKNOWN",
-        };
+        let sw_cpu_stall = registers::SW_CPU_STALL as *mut u32;
 
-        println!(
-            "Exception '{}' mepc=0x{:08x}, mtval=0x{:08x}",
-            code, mepc, mtval
-        );
+        unsafe {
+            // We need to write the value "0x86" to stall a particular core. The write
+            // location is split into two separate bit fields named "c0" and "c1", and the
+            // two fields are located in different registers. Each core has its own pair of
+            // "c0" and "c1" bit fields.
 
-        println!("{:?}", context);
+            let options0 = registers::OPTIONS0 as *mut u32;
 
-        let backtrace = Backtrace::from_sp(context.s0 as u32);
-        let frames = backtrace.frames();
-        if frames.is_empty() {
-            println!(
-                "No backtrace available - make sure to force frame-pointers. (see https://crates.io/crates/esp-backtrace)"
+            options0.write_volatile(options0.read_volatile() & !(0b1111) | 0b1010);
+
+            sw_cpu_stall.write_volatile(
+                sw_cpu_stall.read_volatile() & !(0b111111 << 20) & !(0b111111 << 26)
+                    | (0x21 << 20)
+                    | (0x21 << 26),
             );
         }
-        for frame in backtrace.frames() {
-            println!("0x{:x}", frame.program_counter());
-        }
     }
-
-    abort();
 }
 
-// Ensure that the address is in DRAM and that it is 16-byte aligned.
-//
-// Based loosely on the `esp_stack_ptr_in_dram` function from
-// `components/esp_hw_support/include/esp_memory_utils.h` in ESP-IDF.
-//
-// Address ranges can be found in `components/soc/$CHIP/include/soc/soc.h` as
-// `SOC_DRAM_LOW` and `SOC_DRAM_HIGH`.
-fn is_valid_ram_address(address: u32) -> bool {
-    if (address & 0xF) != 0 {
-        return false;
-    }
-
-    #[cfg(feature = "esp32")]
-    if !(0x3FFA_E000..=0x4000_0000).contains(&address) {
-        return false;
-    }
-
-    #[cfg(feature = "esp32c2")]
-    if !(0x3FCA_0000..=0x3FCE_0000).contains(&address) {
-        return false;
-    }
-
-    #[cfg(feature = "esp32c3")]
-    if !(0x3FC8_0000..=0x3FCE_0000).contains(&address) {
-        return false;
-    }
-
-    #[cfg(feature = "esp32c6")]
-    if !(0x4080_0000..=0x4088_0000).contains(&address) {
-        return false;
-    }
-
-    #[cfg(feature = "esp32h2")]
-    if !(0x4080_0000..=0x4085_0000).contains(&address) {
-        return false;
-    }
-
-    #[cfg(feature = "esp32p4")]
-    if !(0x4FF0_0000..=0x4FFC_0000).contains(&address) {
-        return false;
-    }
-
-    #[cfg(feature = "esp32s2")]
-    if !(0x3FFB_0000..=0x4000_0000).contains(&address) {
-        return false;
-    }
-
-    #[cfg(feature = "esp32s3")]
-    if !(0x3FC8_8000..=0x3FD0_0000).contains(&address) {
-        return false;
-    }
-
-    true
-}
-
-#[allow(unused)]
-fn halt() -> ! {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "custom-halt")] {
-            // call custom code
-            unsafe extern "Rust" {
-                fn custom_halt() -> !;
-            }
-            unsafe { custom_halt() }
-        } else if #[cfg(any(feature = "esp32", /*feature = "esp32p4",*/ feature = "esp32s3"))] {
-            // multi-core
-            #[cfg(feature = "esp32")]
-            mod registers {
-                pub(crate) const OPTIONS0: u32 = 0x3ff48000;
-                pub(crate) const SW_CPU_STALL: u32 = 0x3ff480ac;
-            }
-
-            #[cfg(feature = "esp32p4")]
-            mod registers {
-                pub(crate) const SW_CPU_STALL: u32 = 0x50115200;
-            }
-
-            #[cfg(feature = "esp32s3")]
-            mod registers {
-                pub(crate) const OPTIONS0: u32 = 0x60008000;
-                pub(crate) const SW_CPU_STALL: u32 = 0x600080bc;
-            }
-
-            let sw_cpu_stall = registers::SW_CPU_STALL as *mut u32;
-
-            unsafe {
-                // We need to write the value "0x86" to stall a particular core. The write
-                // location is split into two separate bit fields named "c0" and "c1", and the
-                // two fields are located in different registers. Each core has its own pair of
-                // "c0" and "c1" bit fields.
-
-                let options0 = registers::OPTIONS0 as *mut u32;
-
-                options0.write_volatile(options0.read_volatile() & !(0b1111) | 0b1010);
-
-                sw_cpu_stall.write_volatile(
-                    sw_cpu_stall.read_volatile() & !(0b111111 << 20) & !(0b111111 << 26)
-                        | (0x21 << 20)
-                        | (0x21 << 26),
-                );
-            }
-        }
-    }
-
-    #[allow(clippy::empty_loop)]
-    loop {}
-}
-
-#[allow(unused)]
+#[cfg(feature = "panic-handler")]
 fn pre_backtrace() {
     #[cfg(feature = "custom-pre-backtrace")]
     {
@@ -294,23 +176,33 @@ fn pre_backtrace() {
         }
         unsafe { custom_pre_backtrace() }
     }
-
-    set_color_code(RED);
 }
 
-#[allow(unused)]
+#[cfg(feature = "panic-handler")]
 fn abort() -> ! {
     println!("");
     println!("");
     println!("");
 
-    set_color_code(RESET);
-
     cfg_if::cfg_if! {
         if #[cfg(feature = "semihosting")] {
-            semihosting::process::abort();
-        } else {
+            arch::interrupt_free(|| {
+                semihosting::process::abort();
+            });
+        } else if #[cfg(feature = "halt-cores")] {
             halt();
+        } else if #[cfg(feature = "custom-halt")] {
+            // call custom code
+            unsafe extern "Rust" {
+                fn custom_halt() -> !;
+            }
+            unsafe { custom_halt() }
         }
     }
+
+    #[allow(unreachable_code)]
+    arch::interrupt_free(|| {
+        #[allow(clippy::empty_loop)]
+        loop {}
+    })
 }

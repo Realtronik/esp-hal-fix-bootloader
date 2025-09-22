@@ -16,8 +16,6 @@
 
 use core::marker::PhantomData;
 
-use critical_section::CriticalSection;
-
 use crate::{
     dma::*,
     handler,
@@ -31,6 +29,16 @@ use crate::{
 pub struct AnyGdmaChannel<'d> {
     channel: u8,
     _lifetime: PhantomData<&'d mut ()>,
+}
+
+impl AnyGdmaChannel<'_> {
+    #[cfg_attr(esp32c2, expect(unused))]
+    pub(crate) unsafe fn clone_unchecked(&self) -> Self {
+        Self {
+            channel: self.channel,
+            _lifetime: PhantomData,
+        }
+    }
 }
 
 impl crate::private::Sealed for AnyGdmaChannel<'_> {}
@@ -781,7 +789,7 @@ crate::dma::impl_dma_eligible! {
     }
 }
 
-pub(super) fn init_dma(_cs: CriticalSection<'_>) {
+pub(super) fn init_dma_racey() {
     DMA::regs()
         .misc_conf()
         .modify(|_, w| w.ahbm_rst_inter().set_bit());

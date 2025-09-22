@@ -36,6 +36,42 @@ macro_rules! property {
     ("trm") => {
         "https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf"
     };
+    ("soc.cpu_has_csr_pc") => {
+        false
+    };
+    ("soc.cpu_has_prv_mode") => {
+        false
+    };
+    ("soc.ref_tick_hz") => {
+        1000000
+    };
+    ("soc.ref_tick_hz", str) => {
+        stringify!(1000000)
+    };
+    ("soc.rc_fast_clk_default") => {
+        8500000
+    };
+    ("soc.rc_fast_clk_default", str) => {
+        stringify!(8500000)
+    };
+    ("soc.rc_slow_clock") => {
+        150000
+    };
+    ("soc.rc_slow_clock", str) => {
+        stringify!(150000)
+    };
+    ("soc.has_multiple_xtal_options") => {
+        true
+    };
+    ("aes.dma") => {
+        false
+    };
+    ("aes.has_split_text_registers") => {
+        false
+    };
+    ("aes.endianness_configurable") => {
+        true
+    };
     ("gpio.has_bank_1") => {
         true
     };
@@ -150,14 +186,47 @@ macro_rules! property {
     ("rmt.channel_ram_size", str) => {
         stringify!(64)
     };
+    ("rng.apb_cycle_wait_num") => {
+        16
+    };
+    ("rng.apb_cycle_wait_num", str) => {
+        stringify!(16)
+    };
+    ("rsa.size_increment") => {
+        512
+    };
+    ("rsa.size_increment", str) => {
+        stringify!(512)
+    };
+    ("rsa.memory_size_bytes") => {
+        512
+    };
+    ("rsa.memory_size_bytes", str) => {
+        stringify!(512)
+    };
+    ("sha.dma") => {
+        false
+    };
     ("spi_master.has_octal") => {
         false
     };
     ("timergroup.timg_has_timer1") => {
         true
     };
+    ("timergroup.timg_has_divcnt_rst") => {
+        false
+    };
+    ("uart.ram_size") => {
+        128
+    };
+    ("uart.ram_size", str) => {
+        stringify!(128)
+    };
     ("wifi.has_wifi6") => {
         false
+    };
+    ("phy.combo_module") => {
+        true
     };
 }
 /// Macro to get the address range of the given memory region.
@@ -166,6 +235,103 @@ macro_rules! property {
 macro_rules! memory_range {
     ("DRAM") => {
         1073405952..1073741824
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_soc_xtal_options {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((26)); _for_each_inner!((40)); _for_each_inner!((all(26),
+        (40)));
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_aes_key_length {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((128)); _for_each_inner!((192)); _for_each_inner!((256));
+        _for_each_inner!((128, 0, 4)); _for_each_inner!((192, 1, 5));
+        _for_each_inner!((256, 2, 6)); _for_each_inner!((bits(128), (192), (256)));
+        _for_each_inner!((modes(128, 0, 4), (192, 1, 5), (256, 2, 6)));
+    };
+}
+/// This macro can be used to generate code for each channel of the RMT peripheral.
+///
+/// For an explanation on the general syntax, as well as usage of individual/repeated
+/// matchers, refer to [the crate-level documentation][crate#for_each-macros].
+///
+/// This macro has three options for its "Individual matcher" case:
+///
+/// - `all`: `($num:literal)`
+/// - `tx`: `($num:literal, $idx:literal)`
+/// - `rx`: `($num:literal, $idx:literal)`
+///
+/// Macro fragments:
+///
+/// - `$num`: number of the channel, e.g. `0`
+/// - `$idx`: index of the channel among channels of the same capability, e.g. `0`
+///
+/// Example data:
+///
+/// - `all`: `(0)`
+/// - `tx`: `(1, 1)`
+/// - `rx`: `(2, 0)`
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_rmt_channel {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((0)); _for_each_inner!((1)); _for_each_inner!((2));
+        _for_each_inner!((3)); _for_each_inner!((4)); _for_each_inner!((5));
+        _for_each_inner!((6)); _for_each_inner!((7)); _for_each_inner!((0, 0));
+        _for_each_inner!((1, 1)); _for_each_inner!((2, 2)); _for_each_inner!((3, 3));
+        _for_each_inner!((4, 4)); _for_each_inner!((5, 5)); _for_each_inner!((6, 6));
+        _for_each_inner!((7, 7)); _for_each_inner!((0, 0)); _for_each_inner!((1, 1));
+        _for_each_inner!((2, 2)); _for_each_inner!((3, 3)); _for_each_inner!((4, 4));
+        _for_each_inner!((5, 5)); _for_each_inner!((6, 6)); _for_each_inner!((7, 7));
+        _for_each_inner!((all(0), (1), (2), (3), (4), (5), (6), (7)));
+        _for_each_inner!((tx(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7,
+        7))); _for_each_inner!((rx(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6),
+        (7, 7)));
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_rsa_exponentiation {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((512)); _for_each_inner!((1024)); _for_each_inner!((1536));
+        _for_each_inner!((2048)); _for_each_inner!((2560)); _for_each_inner!((3072));
+        _for_each_inner!((3584)); _for_each_inner!((4096)); _for_each_inner!((all(512),
+        (1024), (1536), (2048), (2560), (3072), (3584), (4096)));
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_rsa_multiplication {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((512)); _for_each_inner!((1024)); _for_each_inner!((1536));
+        _for_each_inner!((2048)); _for_each_inner!((all(512), (1024), (1536), (2048)));
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_sha_algorithm {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((Sha1, "SHA-1"(sizes : 64, 20, 8) (insecure_against :
+        "collision", "length extension"), 0)); _for_each_inner!((Sha256, "SHA-256"(sizes
+        : 64, 32, 8) (insecure_against : "length extension"), 0));
+        _for_each_inner!((Sha384, "SHA-384"(sizes : 128, 48, 16) (insecure_against :),
+        0)); _for_each_inner!((Sha512, "SHA-512"(sizes : 128, 64, 16) (insecure_against :
+        "length extension"), 0)); _for_each_inner!((algos(Sha1, "SHA-1"(sizes : 64, 20,
+        8) (insecure_against : "collision", "length extension"), 0), (Sha256,
+        "SHA-256"(sizes : 64, 32, 8) (insecure_against : "length extension"), 0),
+        (Sha384, "SHA-384"(sizes : 128, 48, 16) (insecure_against :), 0), (Sha512,
+        "SHA-512"(sizes : 128, 64, 16) (insecure_against : "length extension"), 0)));
     };
 }
 /// This macro can be used to generate code for each peripheral instance of the I2C master driver.
@@ -329,61 +495,64 @@ macro_rules! for_each_peripheral {
         _for_each_inner!((MCPWM1 <= MCPWM1() (unstable))); _for_each_inner!((NRX <= NRX()
         (unstable))); _for_each_inner!((PCNT <= PCNT() (unstable)));
         _for_each_inner!((RMT <= RMT() (unstable))); _for_each_inner!((RNG <= RNG()
-        (unstable))); _for_each_inner!((RSA <= RSA() (unstable))); _for_each_inner!((LPWR
-        <= RTC_CNTL() (unstable))); _for_each_inner!((RTC_I2C <= RTC_I2C() (unstable)));
-        _for_each_inner!((RTC_IO <= RTC_IO() (unstable))); _for_each_inner!((SDHOST <=
-        SDHOST() (unstable))); _for_each_inner!((SENS <= SENS() (unstable)));
-        _for_each_inner!((SHA <= SHA() (unstable))); _for_each_inner!((SLC <= SLC()
-        (unstable))); _for_each_inner!((SLCHOST <= SLCHOST() (unstable)));
-        _for_each_inner!((SPI0 <= SPI0() (unstable))); _for_each_inner!((SPI1 <= SPI1()
-        (unstable))); _for_each_inner!((SPI2 <= SPI2(SPI2_DMA : { bind_dma_interrupt,
-        enable_dma_interrupt, disable_dma_interrupt }, SPI2 : { bind_peri_interrupt,
-        enable_peri_interrupt, disable_peri_interrupt }))); _for_each_inner!((SPI3 <=
-        SPI3(SPI3_DMA : { bind_dma_interrupt, enable_dma_interrupt, disable_dma_interrupt
-        }, SPI3 : { bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt
-        }))); _for_each_inner!((TIMG0 <= TIMG0() (unstable))); _for_each_inner!((TIMG1 <=
-        TIMG1() (unstable))); _for_each_inner!((TWAI0 <= TWAI0() (unstable)));
-        _for_each_inner!((UART0 <= UART0(UART0 : { bind_peri_interrupt,
-        enable_peri_interrupt, disable_peri_interrupt }))); _for_each_inner!((UART1 <=
-        UART1(UART1 : { bind_peri_interrupt, enable_peri_interrupt,
-        disable_peri_interrupt }))); _for_each_inner!((UART2 <= UART2(UART2 : {
+        (unstable))); _for_each_inner!((RSA <= RSA(RSA : { bind_peri_interrupt,
+        enable_peri_interrupt, disable_peri_interrupt }) (unstable)));
+        _for_each_inner!((LPWR <= RTC_CNTL() (unstable))); _for_each_inner!((RTC_I2C <=
+        RTC_I2C() (unstable))); _for_each_inner!((RTC_IO <= RTC_IO() (unstable)));
+        _for_each_inner!((SDHOST <= SDHOST() (unstable))); _for_each_inner!((SENS <=
+        SENS() (unstable))); _for_each_inner!((SHA <= SHA() (unstable)));
+        _for_each_inner!((SLC <= SLC() (unstable))); _for_each_inner!((SLCHOST <=
+        SLCHOST() (unstable))); _for_each_inner!((SPI0 <= SPI0() (unstable)));
+        _for_each_inner!((SPI1 <= SPI1() (unstable))); _for_each_inner!((SPI2 <=
+        SPI2(SPI2_DMA : { bind_dma_interrupt, enable_dma_interrupt, disable_dma_interrupt
+        }, SPI2 : { bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt
+        }))); _for_each_inner!((SPI3 <= SPI3(SPI3_DMA : { bind_dma_interrupt,
+        enable_dma_interrupt, disable_dma_interrupt }, SPI3 : { bind_peri_interrupt,
+        enable_peri_interrupt, disable_peri_interrupt }))); _for_each_inner!((TIMG0 <=
+        TIMG0() (unstable))); _for_each_inner!((TIMG1 <= TIMG1() (unstable)));
+        _for_each_inner!((TWAI0 <= TWAI0() (unstable))); _for_each_inner!((UART0 <=
+        UART0(UART0 : { bind_peri_interrupt, enable_peri_interrupt,
+        disable_peri_interrupt }))); _for_each_inner!((UART1 <= UART1(UART1 : {
         bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })));
-        _for_each_inner!((UHCI0 <= UHCI0() (unstable))); _for_each_inner!((UHCI1 <=
-        UHCI1() (unstable))); _for_each_inner!((WIFI <= WIFI() (unstable)));
-        _for_each_inner!((DMA_SPI2 <= SPI2() (unstable))); _for_each_inner!((DMA_SPI3 <=
-        SPI3() (unstable))); _for_each_inner!((DMA_I2S0 <= I2S0() (unstable)));
-        _for_each_inner!((DMA_I2S1 <= I2S1() (unstable))); _for_each_inner!((ADC1 <=
-        virtual() (unstable))); _for_each_inner!((ADC2 <= virtual() (unstable)));
-        _for_each_inner!((BT <= virtual() (unstable))); _for_each_inner!((CPU_CTRL <=
-        virtual() (unstable))); _for_each_inner!((DAC1 <= virtual() (unstable)));
-        _for_each_inner!((DAC2 <= virtual() (unstable))); _for_each_inner!((PSRAM <=
-        virtual() (unstable))); _for_each_inner!((SW_INTERRUPT <= virtual() (unstable)));
-        _for_each_inner!((TOUCH <= virtual() (unstable))); _for_each_inner!((all(GPIO0 <=
-        virtual()), (GPIO1 <= virtual()), (GPIO2 <= virtual()), (GPIO3 <= virtual()),
-        (GPIO4 <= virtual()), (GPIO5 <= virtual()), (GPIO6 <= virtual()), (GPIO7 <=
-        virtual()), (GPIO8 <= virtual()), (GPIO9 <= virtual()), (GPIO10 <= virtual()),
-        (GPIO11 <= virtual()), (GPIO12 <= virtual()), (GPIO13 <= virtual()), (GPIO14 <=
-        virtual()), (GPIO15 <= virtual()), (GPIO16 <= virtual()), (GPIO17 <= virtual()),
-        (GPIO18 <= virtual()), (GPIO19 <= virtual()), (GPIO20 <= virtual()), (GPIO21 <=
-        virtual()), (GPIO22 <= virtual()), (GPIO23 <= virtual()), (GPIO25 <= virtual()),
-        (GPIO26 <= virtual()), (GPIO27 <= virtual()), (GPIO32 <= virtual()), (GPIO33 <=
-        virtual()), (GPIO34 <= virtual()), (GPIO35 <= virtual()), (GPIO36 <= virtual()),
-        (GPIO37 <= virtual()), (GPIO38 <= virtual()), (GPIO39 <= virtual()), (AES <=
-        AES() (unstable)), (APB_CTRL <= APB_CTRL() (unstable)), (BB <= BB() (unstable)),
-        (DPORT <= DPORT() (unstable)), (SYSTEM <= DPORT() (unstable)), (EFUSE <= EFUSE()
-        (unstable)), (EMAC_DMA <= EMAC_DMA() (unstable)), (EMAC_EXT <= EMAC_EXT()
-        (unstable)), (EMAC_MAC <= EMAC_MAC() (unstable)), (FLASH_ENCRYPTION <=
-        FLASH_ENCRYPTION() (unstable)), (FRC_TIMER <= FRC_TIMER() (unstable)), (GPIO <=
-        GPIO() (unstable)), (GPIO_SD <= GPIO_SD() (unstable)), (HINF <= HINF()
-        (unstable)), (I2C0 <= I2C0(I2C_EXT0 : { bind_peri_interrupt,
-        enable_peri_interrupt, disable_peri_interrupt })), (I2C1 <= I2C1(I2C_EXT1 : {
-        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })), (I2S0 <=
-        I2S0(I2S0 : { bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt
-        }) (unstable)), (I2S1 <= I2S1(I2S1 : { bind_peri_interrupt,
-        enable_peri_interrupt, disable_peri_interrupt }) (unstable)), (IO_MUX <= IO_MUX()
-        (unstable)), (LEDC <= LEDC() (unstable)), (MCPWM0 <= MCPWM0() (unstable)),
-        (MCPWM1 <= MCPWM1() (unstable)), (NRX <= NRX() (unstable)), (PCNT <= PCNT()
-        (unstable)), (RMT <= RMT() (unstable)), (RNG <= RNG() (unstable)), (RSA <= RSA()
+        _for_each_inner!((UART2 <= UART2(UART2 : { bind_peri_interrupt,
+        enable_peri_interrupt, disable_peri_interrupt }))); _for_each_inner!((UHCI0 <=
+        UHCI0() (unstable))); _for_each_inner!((UHCI1 <= UHCI1() (unstable)));
+        _for_each_inner!((WIFI <= WIFI() (unstable))); _for_each_inner!((DMA_SPI2 <=
+        SPI2() (unstable))); _for_each_inner!((DMA_SPI3 <= SPI3() (unstable)));
+        _for_each_inner!((DMA_I2S0 <= I2S0() (unstable))); _for_each_inner!((DMA_I2S1 <=
+        I2S1() (unstable))); _for_each_inner!((ADC1 <= virtual() (unstable)));
+        _for_each_inner!((ADC2 <= virtual() (unstable))); _for_each_inner!((BT <=
+        virtual() (unstable))); _for_each_inner!((CPU_CTRL <= virtual() (unstable)));
+        _for_each_inner!((DAC1 <= virtual() (unstable))); _for_each_inner!((DAC2 <=
+        virtual() (unstable))); _for_each_inner!((PSRAM <= virtual() (unstable)));
+        _for_each_inner!((SW_INTERRUPT <= virtual() (unstable))); _for_each_inner!((TOUCH
+        <= virtual() (unstable))); _for_each_inner!((all(GPIO0 <= virtual()), (GPIO1 <=
+        virtual()), (GPIO2 <= virtual()), (GPIO3 <= virtual()), (GPIO4 <= virtual()),
+        (GPIO5 <= virtual()), (GPIO6 <= virtual()), (GPIO7 <= virtual()), (GPIO8 <=
+        virtual()), (GPIO9 <= virtual()), (GPIO10 <= virtual()), (GPIO11 <= virtual()),
+        (GPIO12 <= virtual()), (GPIO13 <= virtual()), (GPIO14 <= virtual()), (GPIO15 <=
+        virtual()), (GPIO16 <= virtual()), (GPIO17 <= virtual()), (GPIO18 <= virtual()),
+        (GPIO19 <= virtual()), (GPIO20 <= virtual()), (GPIO21 <= virtual()), (GPIO22 <=
+        virtual()), (GPIO23 <= virtual()), (GPIO25 <= virtual()), (GPIO26 <= virtual()),
+        (GPIO27 <= virtual()), (GPIO32 <= virtual()), (GPIO33 <= virtual()), (GPIO34 <=
+        virtual()), (GPIO35 <= virtual()), (GPIO36 <= virtual()), (GPIO37 <= virtual()),
+        (GPIO38 <= virtual()), (GPIO39 <= virtual()), (AES <= AES() (unstable)),
+        (APB_CTRL <= APB_CTRL() (unstable)), (BB <= BB() (unstable)), (DPORT <= DPORT()
+        (unstable)), (SYSTEM <= DPORT() (unstable)), (EFUSE <= EFUSE() (unstable)),
+        (EMAC_DMA <= EMAC_DMA() (unstable)), (EMAC_EXT <= EMAC_EXT() (unstable)),
+        (EMAC_MAC <= EMAC_MAC() (unstable)), (FLASH_ENCRYPTION <= FLASH_ENCRYPTION()
+        (unstable)), (FRC_TIMER <= FRC_TIMER() (unstable)), (GPIO <= GPIO() (unstable)),
+        (GPIO_SD <= GPIO_SD() (unstable)), (HINF <= HINF() (unstable)), (I2C0 <=
+        I2C0(I2C_EXT0 : { bind_peri_interrupt, enable_peri_interrupt,
+        disable_peri_interrupt })), (I2C1 <= I2C1(I2C_EXT1 : { bind_peri_interrupt,
+        enable_peri_interrupt, disable_peri_interrupt })), (I2S0 <= I2S0(I2S0 : {
+        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
+        (unstable)), (I2S1 <= I2S1(I2S1 : { bind_peri_interrupt, enable_peri_interrupt,
+        disable_peri_interrupt }) (unstable)), (IO_MUX <= IO_MUX() (unstable)), (LEDC <=
+        LEDC() (unstable)), (MCPWM0 <= MCPWM0() (unstable)), (MCPWM1 <= MCPWM1()
+        (unstable)), (NRX <= NRX() (unstable)), (PCNT <= PCNT() (unstable)), (RMT <=
+        RMT() (unstable)), (RNG <= RNG() (unstable)), (RSA <= RSA(RSA : {
+        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
         (unstable)), (LPWR <= RTC_CNTL() (unstable)), (RTC_I2C <= RTC_I2C() (unstable)),
         (RTC_IO <= RTC_IO() (unstable)), (SDHOST <= SDHOST() (unstable)), (SENS <= SENS()
         (unstable)), (SHA <= SHA() (unstable)), (SLC <= SLC() (unstable)), (SLCHOST <=
@@ -1131,99 +1300,44 @@ macro_rules! define_io_mux_signals {
 macro_rules! define_io_mux_reg {
     () => {
         pub(crate) fn io_mux_reg(gpio_num: u8) -> &'static crate::pac::io_mux::GPIO0 {
-            use core::mem::transmute;
-
-            use crate::{pac::io_mux, peripherals::IO_MUX};
-            let iomux = IO_MUX::regs();
-            unsafe {
-                match gpio_num {
-                    0 => transmute::<&'static io_mux::GPIO0, &'static io_mux::GPIO0>(iomux.gpio0()),
-                    1 => transmute::<&'static io_mux::GPIO1, &'static io_mux::GPIO0>(iomux.gpio1()),
-                    2 => transmute::<&'static io_mux::GPIO2, &'static io_mux::GPIO0>(iomux.gpio2()),
-                    3 => transmute::<&'static io_mux::GPIO3, &'static io_mux::GPIO0>(iomux.gpio3()),
-                    4 => transmute::<&'static io_mux::GPIO4, &'static io_mux::GPIO0>(iomux.gpio4()),
-                    5 => transmute::<&'static io_mux::GPIO5, &'static io_mux::GPIO0>(iomux.gpio5()),
-                    6 => transmute::<&'static io_mux::GPIO6, &'static io_mux::GPIO0>(iomux.gpio6()),
-                    7 => transmute::<&'static io_mux::GPIO7, &'static io_mux::GPIO0>(iomux.gpio7()),
-                    8 => transmute::<&'static io_mux::GPIO8, &'static io_mux::GPIO0>(iomux.gpio8()),
-                    9 => transmute::<&'static io_mux::GPIO9, &'static io_mux::GPIO0>(iomux.gpio9()),
-                    10 => {
-                        transmute::<&'static io_mux::GPIO10, &'static io_mux::GPIO0>(iomux.gpio10())
-                    }
-                    11 => {
-                        transmute::<&'static io_mux::GPIO11, &'static io_mux::GPIO0>(iomux.gpio11())
-                    }
-                    12 => {
-                        transmute::<&'static io_mux::GPIO12, &'static io_mux::GPIO0>(iomux.gpio12())
-                    }
-                    13 => {
-                        transmute::<&'static io_mux::GPIO13, &'static io_mux::GPIO0>(iomux.gpio13())
-                    }
-                    14 => {
-                        transmute::<&'static io_mux::GPIO14, &'static io_mux::GPIO0>(iomux.gpio14())
-                    }
-                    15 => {
-                        transmute::<&'static io_mux::GPIO15, &'static io_mux::GPIO0>(iomux.gpio15())
-                    }
-                    16 => {
-                        transmute::<&'static io_mux::GPIO16, &'static io_mux::GPIO0>(iomux.gpio16())
-                    }
-                    17 => {
-                        transmute::<&'static io_mux::GPIO17, &'static io_mux::GPIO0>(iomux.gpio17())
-                    }
-                    18 => {
-                        transmute::<&'static io_mux::GPIO18, &'static io_mux::GPIO0>(iomux.gpio18())
-                    }
-                    19 => {
-                        transmute::<&'static io_mux::GPIO19, &'static io_mux::GPIO0>(iomux.gpio19())
-                    }
-                    20 => {
-                        transmute::<&'static io_mux::GPIO20, &'static io_mux::GPIO0>(iomux.gpio20())
-                    }
-                    21 => {
-                        transmute::<&'static io_mux::GPIO21, &'static io_mux::GPIO0>(iomux.gpio21())
-                    }
-                    22 => {
-                        transmute::<&'static io_mux::GPIO22, &'static io_mux::GPIO0>(iomux.gpio22())
-                    }
-                    23 => {
-                        transmute::<&'static io_mux::GPIO23, &'static io_mux::GPIO0>(iomux.gpio23())
-                    }
-                    25 => {
-                        transmute::<&'static io_mux::GPIO25, &'static io_mux::GPIO0>(iomux.gpio25())
-                    }
-                    26 => {
-                        transmute::<&'static io_mux::GPIO26, &'static io_mux::GPIO0>(iomux.gpio26())
-                    }
-                    27 => {
-                        transmute::<&'static io_mux::GPIO27, &'static io_mux::GPIO0>(iomux.gpio27())
-                    }
-                    32 => {
-                        transmute::<&'static io_mux::GPIO32, &'static io_mux::GPIO0>(iomux.gpio32())
-                    }
-                    33 => {
-                        transmute::<&'static io_mux::GPIO33, &'static io_mux::GPIO0>(iomux.gpio33())
-                    }
-                    34 => {
-                        transmute::<&'static io_mux::GPIO34, &'static io_mux::GPIO0>(iomux.gpio34())
-                    }
-                    35 => {
-                        transmute::<&'static io_mux::GPIO35, &'static io_mux::GPIO0>(iomux.gpio35())
-                    }
-                    36 => {
-                        transmute::<&'static io_mux::GPIO36, &'static io_mux::GPIO0>(iomux.gpio36())
-                    }
-                    37 => {
-                        transmute::<&'static io_mux::GPIO37, &'static io_mux::GPIO0>(iomux.gpio37())
-                    }
-                    38 => {
-                        transmute::<&'static io_mux::GPIO38, &'static io_mux::GPIO0>(iomux.gpio38())
-                    }
-                    39 => {
-                        transmute::<&'static io_mux::GPIO39, &'static io_mux::GPIO0>(iomux.gpio39())
-                    }
-                    other => panic!("GPIO {} does not exist", other),
-                }
+            let iomux = crate::peripherals::IO_MUX::regs();
+            match gpio_num {
+                0 => iomux.gpio0(),
+                1 => iomux.gpio1(),
+                2 => iomux.gpio2(),
+                3 => iomux.gpio3(),
+                4 => iomux.gpio4(),
+                5 => iomux.gpio5(),
+                6 => iomux.gpio6(),
+                7 => iomux.gpio7(),
+                8 => iomux.gpio8(),
+                9 => iomux.gpio9(),
+                10 => iomux.gpio10(),
+                11 => iomux.gpio11(),
+                12 => iomux.gpio12(),
+                13 => iomux.gpio13(),
+                14 => iomux.gpio14(),
+                15 => iomux.gpio15(),
+                16 => iomux.gpio16(),
+                17 => iomux.gpio17(),
+                18 => iomux.gpio18(),
+                19 => iomux.gpio19(),
+                20 => iomux.gpio20(),
+                21 => iomux.gpio21(),
+                22 => iomux.gpio22(),
+                23 => iomux.gpio23(),
+                25 => iomux.gpio25(),
+                26 => iomux.gpio26(),
+                27 => iomux.gpio27(),
+                32 => iomux.gpio32(),
+                33 => iomux.gpio33(),
+                34 => iomux.gpio34(),
+                35 => iomux.gpio35(),
+                36 => iomux.gpio36(),
+                37 => iomux.gpio37(),
+                38 => iomux.gpio38(),
+                39 => iomux.gpio39(),
+                other => panic!("GPIO {} does not exist", other),
             }
         }
     };

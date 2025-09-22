@@ -9,15 +9,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A reimplemntation of the `assign_resources!` macro (#3809)
+- `TrngSource` to manage random number generator entropy (#3829)
+- On RISC-V you can opt-out of nested interrupts for an interrupt handler by using `new_not_nested` (#3875)
+- A new default feature `exception-handler` was added (#3887)
+- `AesBackend, AesContext`: Work-queue based AES driver (#3880)
+- `aes::cipher_modes`, `aes::CipherModeState` for constructing `AesContext`s (#3895)
+- `DmaTxBuffer` and `DmaRxBuffer` now have a `Final` associated type. (#3923)
+- `RsaBackend, RsaContext`: Work-queue based RSA driver (#3910)
+- `aes::{AesBackend, AesContext, dma::AesDmaBackend}`: Work-queue based AES driver (#3880, #3897)
+- `aes::cipher_modes`, `aes::CipherState` for constructing `AesContext`s (#3895)
+- `aes::dma::DmaCipherState` so that `AesDma` can properly support cipher modes that require state (IV, nonce, etc.) (#3897)
+- `uart::Uhci`: for UART with DMA using the UHCI peripheral (#3871, #4008, #4011)
+- Align `I8080` driver pin configurations with latest guidelines (#3997)
+- Expose cache line configuration (#3946)
+- ESP32: Expose `psram_vaddr_mode` via `PsramConfig` (#3990)
+- ESP32-S3: Expose more `Camera` config options (#3996)
+- Functions to query chip revision for every chip (#3892)
+- ESP32-S3: Add RtcI2c driver (#0000)
+- `ShaBackend, Sha<N>Context`: Work-queue based SHA driver (#4013)
+- I2S: `i2s::master::Config` with support for more TDM mode standards (#3985)
+- ESP32: support outputting the main I2S clock signal (#4128)
 
 ### Changed
 
+- The `rng` module has been rewritten (#3829)
+- Update `embassy-usb` to v0.5.0 (#3848)
+- `aes::Key` variants have been renamed from bytes to bits (e.g. `Key16 -> Key128`) (#3845)
+- `aes::Mode` has been replaced by `Operation`. The key length is now solely determined by the key. (#3882)
+- `AesDma::process` now takes `DmaCipherState` instead of `CipherMode`. (#3897)
+- `Aes::process` has been split into `Aes::encrypt` and `Aes::decrypt` (#3882)
+- Blocking RMT transactions can now be `poll`ed without blocking, returning whether they have completed. (#3716)
+- RISC-V: Interrupt handler don't get a TrapFrame passed in anymore (#3903)
+- ISR callbacks are now wrapped in `IsrCallback` (#3885)
+- The RMT `PulseCode` is now a newtype wrapping `u32` with `const fn` methods and implementing `defmt::Format` and `core::fmt::Debug`. (#3884)
+- RMT transmit and receive methods accept `impl Into<PulseCode>` and `impl From<PulseCode>`, respectively. (#3884)
+- The `Rsa::read` function has been removed. The constructor now blocks until the peripheral's memory has been cleared (#3900)
+- `Rsa::enable_constant_time_acceleration` has been renamed to `Rsa::disable_constant_time` (#3900)
+- `Rsa::enable_search_acceleration` has been renamed to `Rsa::search_acceleration` (#3900)
+- `DmaTxBuffer::from_view` and `DmaRxBuffer::from_view` now return an object with type `DmaTx/RxBuffer::Final`. (#3923)
+- `i2c::master::Config::timeout` has been de-stabilized, and `i2c::master::Config::software_timeout`. (#3926)
+- The default values of `i2c::master::Config` timeouts have been changed to their maximum possible values. (#3926)
+- Adc CHANNEL constant moved to trait function. (#3942)
+- `ShaDigest::finish` has been reimplemented to be properly non-blocking (#3948)
+- Replace Timer's `pub fn enable_interrupt(&mut self, enable: bool)` with `pub fn listen(&mut self)` and `pub fn unlisten(&mut self)` (#3933)
+- ESP32-S3: `PsramConfig::core_clock` is now an `Option` (#3974)
+- `RtcSlowClock::RtcFastClock8m` has been renamed to `RtcFastClock::RtcFastClockRcFast` (#3993)
+- `RtcSlowClock::RtcSlowClockRtc` has been renamed to `RtcSlowClock::RtcSlowClockRcSlow` (#3993)
+- The `Raw: RawChannelAccess` of `rmt::Channel` has been erased; channel numbers are always dynamic now. (#3980)
+- ESP32-S2: `i2s::master::DataFormat` now includes 8-bit and 24-bit data widths (#3985)
+- Bump `embassy-embedded-hal` to v0.5.0 (#4075)
+- Make `uart::Uhci` configurable after splitting, improve DMA channel handling (#4039)
+- `RtcClock`, `RtcFastClock`, and `RtcSlowClock` moved to `clock` module (#4089)
+- Resolved enum variant naming violations in `RtcFastClock` and `RtcSlowClock` enums (#4089)
+- The `rmt::Channel::transmit_continuously` and `rmt::Channel::transmit_continuously_with_loopcount` methods have been merged (#4100)
 
 ### Fixed
 
+- PSRAM on ESP32-S2 (#3811)
+- WDT now allows configuring longer timeouts (#3816)
+- `ADC2` now cannot be used simultaneously with `radio` on ESP32 (#3876)
+- Switched GPIO32 and GPIO33 ADC channel numbers (#3908, #3911)
+- Calling `Input::unlisten` in a GPIO interrupt handler no longer panics (#3913)
+- ESP32, ESP32-S2: Fixed I2C bus clearing algorithm (#3926)
+- Check serial instead of jtag fifo status in UsbSerialJtag's async flush function (#3957)
+- ESP32: Enable up to 4M of PSRAM (#3990)
+- I2C error recovery logic issues (#4000)
+- I2S: Fixed RX half-sample bits configuration bug causing microphone noise (#4109)
 
 ### Removed
 
+- `Trng::new` (replaced by `Trng::try_new`) (#3829)
+- `AesDma::{write_key, write_block}` have been removed. (#3880, #3882)
+- `AesFlavour` trait and `AesX` structs have been removed. (#3880)
+- `Xtal::Other` has been removed (#3983)
+- ESP32-C3/S3: removed the UHCI1 peripheral singleton (#4007)
+- `i2s::master::Standard` has been removed (#3985)
 
 ## [v1.0.0-rc.0] - 2025-07-16
 

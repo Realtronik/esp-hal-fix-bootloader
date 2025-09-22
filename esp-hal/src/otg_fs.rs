@@ -31,7 +31,7 @@
 //! Visit the [USB Serial] example for an example of using the USB OTG
 //! peripheral.
 //!
-//! [USB Serial]: https://github.com/esp-rs/esp-hal/blob/main/examples/src/bin/usb_serial.rs
+//! [USB Serial]: https://github.com/esp-rs/esp-hal/blob/main/examples/peripheral/usb_serial/src/main.rs
 //!
 //! ## Implementation State
 //! - Low-speed (LS) is not supported.
@@ -213,21 +213,23 @@ pub mod asynch {
         fn alloc_endpoint_in(
             &mut self,
             ep_type: EndpointType,
+            ep_addr: Option<EndpointAddress>,
             max_packet_size: u16,
             interval_ms: u8,
         ) -> Result<Self::EndpointIn, EndpointAllocError> {
             self.inner
-                .alloc_endpoint_in(ep_type, max_packet_size, interval_ms)
+                .alloc_endpoint_in(ep_type, ep_addr, max_packet_size, interval_ms)
         }
 
         fn alloc_endpoint_out(
             &mut self,
             ep_type: EndpointType,
+            ep_addr: Option<EndpointAddress>,
             max_packet_size: u16,
             interval_ms: u8,
         ) -> Result<Self::EndpointOut, EndpointAllocError> {
             self.inner
-                .alloc_endpoint_out(ep_type, max_packet_size, interval_ms)
+                .alloc_endpoint_out(ep_type, ep_addr, max_packet_size, interval_ms)
         }
 
         fn start(self, control_max_packet_size: u16) -> (Self::Bus, Self::ControlPipe) {

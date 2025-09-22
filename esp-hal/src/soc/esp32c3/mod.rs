@@ -10,18 +10,12 @@
 //!    * I2S_DEFAULT_CLK_SRC: 2 - I2S clock source
 
 crate::unstable_module! {
-    pub mod efuse;
     pub mod trng;
 }
 pub mod gpio;
 pub(crate) mod regi2c;
 
 pub(crate) use esp32c3 as pac;
-
-#[allow(unused)]
-pub(crate) mod registers {
-    pub const INTERRUPT_MAP_BASE: u32 = 0x600c2000;
-}
 
 #[cfg_attr(not(feature = "unstable"), allow(unused))]
 pub(crate) mod constants {
@@ -36,9 +30,6 @@ pub(crate) mod constants {
     pub const RMT_CLOCK_SRC: u8 = 1;
     /// RMT Clock source frequency.
     pub const RMT_CLOCK_SRC_FREQ: Rate = Rate::from_mhz(80);
-
-    /// RC FAST Clock value (Hertz).
-    pub const RC_FAST_CLK: Rate = Rate::from_khz(17500);
 }
 
 pub(crate) fn pre_init() {}

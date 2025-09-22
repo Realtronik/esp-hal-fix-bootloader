@@ -1,14 +1,36 @@
+pub(crate) mod aes;
 pub(crate) mod gpio;
 pub(crate) mod i2c_master;
+pub(crate) mod rmt;
+pub(crate) mod rsa;
+pub(crate) mod sha;
+pub(crate) mod soc;
 pub(crate) mod spi_master;
 pub(crate) mod spi_slave;
 pub(crate) mod uart;
 
+pub(crate) use aes::*;
 pub(crate) use gpio::*;
 pub(crate) use i2c_master::*;
+pub(crate) use rmt::*;
+pub(crate) use sha::*;
 pub(crate) use spi_master::*;
 pub(crate) use spi_slave::*;
 pub(crate) use uart::*;
+
+pub(crate) trait GenericProperty {
+    fn cfgs(&self) -> Option<Vec<String>> {
+        None
+    }
+
+    fn for_each_macro(&self) -> Option<proc_macro2::TokenStream> {
+        None
+    }
+
+    fn property_macro_branches(&self) -> proc_macro2::TokenStream {
+        quote::quote! {}
+    }
+}
 
 /// Represents a value in the driver configuration.
 pub(crate) enum Value {
@@ -18,6 +40,12 @@ pub(crate) enum Value {
     Number(u32),
     /// A boolean value. If true, the value is included in the cfg symbols.
     Boolean(bool),
+    /// A list of numeric values. A for-each macro is generated for the list.
+    NumberList(Vec<u32>),
+    /// A list of strings. A separate symbol is generated for each string.
+    StringList(Vec<String>),
+    /// A generic object.
+    Generic(Box<dyn GenericProperty>),
 }
 
 impl From<Option<u32>> for Value {
@@ -71,12 +99,15 @@ pub(crate) struct PeriInstance<I = EmptyInstanceConfig> {
 }
 
 /// A single cell in the peripheral support table.
+#[derive(Default)]
 pub(crate) struct SupportItem {
     /// The human-readable name of the driver in the table (leftmost cell.)
     pub name: &'static str,
     /// The ID of the driver ([device.<config_group>]) in the TOML, that this
     /// item corresponds to.
     pub config_group: &'static str,
+    /// If true, this driver is not shown in the peripheral support table.
+    pub hide_from_peri_table: bool,
 }
 
 /// Define driver configuration structs, and a PeriConfig struct
@@ -85,8 +116,15 @@ macro_rules! driver_configs {
     (@ignore $t:tt) => {};
     (@property (u32)           $self:ident, $config:ident) => { Value::Number($self.$config) };
     (@property (bool)          $self:ident, $config:ident) => { Value::Boolean($self.$config) };
+    (@property (Vec<u32>)      $self:ident, $config:ident) => { Value::NumberList($self.$config.clone()) };
+    (@property (Vec<String>)   $self:ident, $config:ident) => { Value::StringList($self.$config.clone()) };
     (@property (Option<u32>)   $self:ident, $config:ident) => { Value::from($self.$config) };
-    (@property ($($other:ty)*) $self:ident, $config:ident) => { Value::Unset };  // Not a property
+    (@property ($($other:ty)*) $self:ident, $config:ident) => { Value::Generic(Box::new($self.$config.clone())) };
+    (@is_optional Option<$t:ty>) => { true };
+    (@is_optional $t:ty) => { false };
+
+    (@default $default:literal) => { $default };
+    (@default $default:literal $opt:literal) => { $opt };
 
     // Creates a single struct
     (@one
@@ -111,10 +149,11 @@ macro_rules! driver_configs {
         }
 
         impl $struct {
-            fn properties(&self) -> impl Iterator<Item = (&str, Value)> {
+            fn properties(&self) -> impl Iterator<Item = (&str, bool, Value)> {
                 [$( // for each property, generate a tuple
                     (
                         /* name: */  concat!(stringify!($group), ".", stringify!($config)),
+                        /* is_optional: */ driver_configs!(@is_optional $ty $(<$generic>)?),
                         /* value: */ driver_configs!(@property ($ty $(<$generic>)?) self, $config),
                     ),
                 )*].into_iter()
@@ -127,9 +166,16 @@ macro_rules! driver_configs {
         $struct:ident $(<$instance_config:ident>)? {
             // This name will be emitted as a cfg symbol, to activate a driver.
             driver: $driver:ident,
+
             // Driver name, used in the generated documentation.
             name: $name:literal,
+
+            $(hide_from_peri_table: $hide:literal,)?
+
+            // When set, the type must provide `fn computed_properties(&self) -> impl Iterator<Item = (&str, bool, Value)>`.
+            // The iterator yields `(name_with_prefix, optional, value)`.
             $(has_computed_properties: $computed:literal,)?
+
             properties: $tokens:tt
         },
     )+) => {
@@ -156,6 +202,7 @@ macro_rules! driver_configs {
                         SupportItem {
                             name: $name,
                             config_group: stringify!($driver),
+                            hide_from_peri_table: driver_configs!(@default false $($hide)?),
                         },
                     )+
                 ]
@@ -188,7 +235,9 @@ macro_rules! driver_configs {
             }
 
             /// Returns an iterator over all properties of all peripherals.
-            pub fn properties(&self) -> impl Iterator<Item = (&str, Value)> {
+            ///
+            /// (property name, optional?, value)
+            pub fn properties(&self) -> impl Iterator<Item = (&str, bool, Value)> {
                 // Collect into a vector. This compiles faster than chaining iterators.
                 let mut properties = vec![];
                 $(
@@ -224,6 +273,26 @@ macro_rules! driver_configs {
 
 // TODO: sort this similar to how the product portfolio is organized
 driver_configs![
+    SocProperties {
+        driver: soc,
+        name: "SOC",
+        hide_from_peri_table: true,
+        has_computed_properties: true,
+        properties: {
+            #[serde(default)]
+            cpu_has_csr_pc: bool,
+            #[serde(default)]
+            cpu_has_prv_mode: bool,
+            #[serde(default)]
+            ref_tick_hz: Option<u32>,
+            #[serde(default)]
+            rc_fast_clk_default: Option<u32>,
+            #[serde(default)]
+            rc_slow_clock: Option<u32>,
+            xtal_options: Vec<u32>,
+        }
+    },
+
     AdcProperties {
         driver: adc,
         name: "ADC",
@@ -232,7 +301,15 @@ driver_configs![
     AesProperties {
         driver: aes,
         name: "AES",
-        properties: {}
+        properties: {
+            key_length: AesKeyLength,
+            #[serde(default)]
+            dma: bool,
+            #[serde(default)]
+            dma_mode: Vec<String>,
+            has_split_text_registers: bool,
+            endianness_configurable: bool,
+        }
     },
     AssistDebugProperties {
         driver: assist_debug,
@@ -329,6 +406,13 @@ driver_configs![
             fifo_size: u32,
         }
     },
+    LpI2cMasterProperties {
+        driver: lp_i2c_master,
+        name: "LP I2C master",
+        properties: {
+            fifo_size: u32,
+        }
+    },
     I2cSlaveProperties {
         driver: i2c_slave,
         name: "I2C slave",
@@ -392,17 +476,24 @@ driver_configs![
         properties: {
             ram_start: u32,
             channel_ram_size: u32,
+            channels: RmtChannelConfig,
         }
     },
     RngProperties {
         driver: rng,
         name: "RNG",
-        properties: {}
+        properties: {
+            apb_cycle_wait_num: u32,
+        }
     },
     RsaProperties {
         driver: rsa,
         name: "RSA",
-        properties: {}
+        has_computed_properties: true,
+        properties: {
+            size_increment: u32,
+            memory_size_bytes: u32,
+        }
     },
     SdHostProperties {
         driver: sd_host,
@@ -422,7 +513,12 @@ driver_configs![
     ShaProperties {
         driver: sha,
         name: "SHA",
-        properties: {}
+        properties: {
+            #[serde(default)]
+            dma: bool,
+            #[serde(default)]
+            algo: ShaAlgoMap,
+        }
     },
     SpiMasterProperties<SpiMasterInstanceConfig> {
         driver: spi_master,
@@ -453,6 +549,12 @@ driver_configs![
         properties: {
             #[serde(default)]
             timg_has_timer1: bool,
+            #[serde(default)]
+            timg_has_divcnt_rst: bool,
+            #[serde(default)]
+            default_clock_source: Option<u32>,
+            #[serde(default)]
+            default_wdt_clock_source: Option<u32>,
         }
     },
     TouchProperties {
@@ -468,7 +570,16 @@ driver_configs![
     UartProperties<UartInstanceConfig> {
         driver: uart,
         name: "UART",
-        properties: {}
+        properties: {
+            ram_size: u32,
+        }
+    },
+    LpUartProperties {
+        driver: lp_uart,
+        name: "LP UART",
+        properties: {
+            ram_size: u32,
+        }
     },
     UlpFsmProperties {
         driver: ulp_fsm,
@@ -507,5 +618,15 @@ driver_configs![
         driver: ieee802154,
         name: "IEEE 802.15.4",
         properties: {}
+    },
+    PhyProperties {
+        driver: phy,
+        name: "PHY",
+        properties: {
+            #[serde(default)]
+            combo_module: bool,
+            #[serde(default)]
+            backed_up_digital_register_count: Option<u32>,
+        }
     },
 ];

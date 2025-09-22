@@ -11,7 +11,6 @@
 //!    * I2S_SCLK: 96_000_000 - I2S clock frequency
 
 crate::unstable_module! {
-    pub mod efuse;
     pub mod trng;
 }
 pub mod gpio;
@@ -20,16 +19,8 @@ pub(crate) mod regi2c;
 pub(crate) use esp32h2 as pac;
 
 #[cfg_attr(not(feature = "unstable"), allow(unused))]
-pub(crate) mod registers {
-    pub const INTERRUPT_MAP_BASE: u32 = 0x60010000;
-}
-
-#[cfg_attr(not(feature = "unstable"), allow(unused))]
 pub(crate) mod constants {
     use crate::time::Rate;
-
-    /// Default clock source for the timer group (TIMG) peripheral.
-    pub const TIMG_DEFAULT_CLK_SRC: u8 = 2;
 
     /// Default clock source for the I2S peripheral.
     pub const I2S_DEFAULT_CLK_SRC: u8 = 1;
@@ -44,9 +35,6 @@ pub(crate) mod constants {
     /// System clock frequency for the parallel I/O (PARL IO) peripheral, in
     /// Hertz.
     pub const PARL_IO_SCLK: u32 = 96_000_000;
-
-    /// RC FAST Clock value (Hertz).
-    pub const RC_FAST_CLK: Rate = Rate::from_khz(17500);
 }
 
 pub(crate) fn pre_init() {

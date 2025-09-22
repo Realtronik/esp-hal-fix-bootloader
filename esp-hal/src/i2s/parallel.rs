@@ -134,7 +134,7 @@ pub struct TxSixteenBits<'d> {
 }
 
 impl<'d> TxSixteenBits<'d> {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     /// Creates a new `TxSixteenBits` instance with the provided output pins.
     pub fn new(
         pin_0: impl PeripheralOutput<'d>,
@@ -199,7 +199,7 @@ pub struct TxEightBits<'d> {
 }
 
 impl<'d> TxEightBits<'d> {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     /// Creates a new `TxSEightBits` instance with the provided output pins.
     pub fn new(
         pin_0: impl PeripheralOutput<'d>,
@@ -355,7 +355,7 @@ where
     }
 
     /// Wait for the transfer to finish
-    pub fn wait(mut self) -> (I2sParallel<'d, Dm>, BUF) {
+    pub fn wait(mut self) -> (I2sParallel<'d, Dm>, BUF::Final) {
         self.i2s.instance.tx_wait_done();
         let i2s = unsafe { ManuallyDrop::take(&mut self.i2s) };
         let view = unsafe { ManuallyDrop::take(&mut self.buf_view) };

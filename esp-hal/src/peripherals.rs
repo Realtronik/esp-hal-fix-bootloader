@@ -64,7 +64,7 @@ macro_rules! create_peripheral {
             $(
                 /// Binds an interrupt handler to the corresponding interrupt for this peripheral.
                 #[instability::unstable]
-                pub fn $bind(&self, handler: unsafe extern "C" fn() -> ()) {
+                pub fn $bind(&self, handler: $crate::interrupt::IsrCallback) {
                     unsafe { $crate::interrupt::bind_interrupt($crate::peripherals::Interrupt::$interrupt, handler); }
                 }
 
@@ -195,7 +195,7 @@ for_each_peripheral! {
                 #[unsafe(no_mangle)]
                 static mut _ESP_HAL_DEVICE_PERIPHERALS: bool = false;
 
-                critical_section::with(|_| unsafe {
+                crate::ESP_HAL_LOCK.lock(|| unsafe {
                     if _ESP_HAL_DEVICE_PERIPHERALS {
                         panic!("init called more than once!")
                     }

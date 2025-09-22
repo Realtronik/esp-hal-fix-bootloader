@@ -13,7 +13,7 @@ cores  = 1
 trm    = "https://www.espressif.com/sites/default/files/documentation/esp32-s2_technical_reference_manual_en.pdf"
 
 peripherals = [
-    { name = "AES" },
+    { name = "AES", interrupts = { peri = "AES" } },
     { name = "APB_SARADC" },
     { name = "DEDICATED_GPIO" },
     { name = "DS" },
@@ -36,12 +36,12 @@ peripherals = [
     { name = "PMS" },
     { name = "RMT" },
     { name = "RNG" },
-    { name = "RSA" },
+    { name = "RSA", interrupts = { peri = "RSA" } },
     { name = "LPWR", pac = "RTC_CNTL" },
     { name = "RTC_I2C" },
     { name = "RTC_IO" },
     { name = "SENS" },
-    { name = "SHA" },
+    { name = "SHA", interrupts = { peri = "SHA" } },
     { name = "SPI0" },
     { name = "SPI1" },
     { name = "SPI2", interrupts = { peri = "SPI2", dma = "SPI2_DMA" } },
@@ -101,12 +101,30 @@ symbols = [
 
 memory = [{ name = "dram", start = 0x3FFB_0000, end = 0x4000_0000 }]
 
+[device.soc]
+ref_tick_hz = 1_000_000
+rc_fast_clk_default = 8_500_000
+rc_slow_clock = 90_000
+xtal_options = [40]
+
 [device.adc]
 support_status = "partial"
 instances = [
     { name = "adc1" },
     { name = "adc2" },
 ]
+
+[device.aes]
+support_status = "partial"
+has_split_text_registers = true
+endianness_configurable = true
+dma = true
+dma_mode = ["ECB", "CBC", "OFB", "CTR", "CFB8", "CFB128", "GCM"]
+key_length = { options = [
+    { bits = 128, encrypt_mode = 0, decrypt_mode = 4 },
+    { bits = 192, encrypt_mode = 1, decrypt_mode = 5 },
+    { bits = 256, encrypt_mode = 2, decrypt_mode = 6 }
+] }
 
 [device.dac]
 support_status = "partial"
@@ -386,6 +404,7 @@ instances = [
     { name = "i2c1", sys_instance = "I2cExt1", scl = "I2CEXT1_SCL", sda = "I2CEXT1_SDA" },
 ]
 ll_intr_mask = 0x1ffff
+has_hw_bus_clear = false
 fifo_size = 32
 has_bus_timeout_enable = true
 max_bus_timeout = 0xFFFFFF
@@ -404,6 +423,17 @@ status_registers = 3
 support_status = "partial"
 ram_start = 0x3f416400
 channel_ram_size = 64
+channels = ["RxTx", "RxTx", "RxTx", "RxTx"]
+
+[device.rsa]
+support_status = "partial"
+size_increment = 32
+memory_size_bytes = 512
+
+[device.sha]
+support_status = "partial"
+dma = true
+algo = { sha1 = 0, sha224 = 1, sha256 = 2, sha384 = 3, sha512 = 4, sha512_224 = 5, sha512_256 = 6, sha512_t = 7 }
 
 [device.spi_master]
 support_status = "supported"
@@ -414,14 +444,18 @@ instances = [
 ]
 
 [device.spi_slave]
+support_status = "partial"
 instances = [
     { name = "spi2", sys_instance = "Spi2", sclk = "FSPICLK",  mosi = "FSPID",  miso = "FSPIQ",  cs = "FSPICS0" },
     { name = "spi3", sys_instance = "Spi3", sclk = "SPI3_CLK", mosi = "SPI3_D", miso = "SPI3_Q", cs = "SPI3_CS0" },
 ]
 
 [device.timergroup]
+support_status = "partial"
 timg_has_timer1 = true
+timg_has_divcnt_rst = false
 instances = [{ name = "timg0" }, { name = "timg1" }]
+default_clock_source = 0 # use_xtal = false
 
 [device.uart]
 support_status = "supported"
@@ -429,6 +463,7 @@ instances = [
     { name = "uart0", sys_instance = "Uart0", tx = "U0TXD", rx = "U0RXD", cts = "U0CTS", rts = "U0RTS" },
     { name = "uart1", sys_instance = "Uart1", tx = "U1TXD", rx = "U1RXD", cts = "U1CTS", rts = "U1RTS" },
 ]
+ram_size = 128
 
 [device.rgb_display] # via SPI and I2S
 support_status = "not_supported"
@@ -442,14 +477,14 @@ support_status = "not_supported"
 [device.ds]
 support_status = "not_supported"
 
+[device.rng]
+support_status = "partial"
+apb_cycle_wait_num = 16 # TODO
+
 # Other drivers which are partially supported but have no other configuration:
 
 ## Crypto
-[device.aes]
-[device.rsa]
 [device.hmac]
-[device.sha]
-[device.rng]
 
 ## Interfaces
 [device.i2s]
@@ -470,3 +505,4 @@ support_status = "not_supported"
 
 ## Radio
 [device.wifi]
+[device.phy]

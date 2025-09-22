@@ -197,6 +197,7 @@ impl Chip {
 
         // Used by our documentation builds to prevent the huge red warning banner.
         cfgs.push(String::from("cargo:rustc-check-cfg=cfg(not_really_docsrs)"));
+        cfgs.push(String::from("cargo:rustc-check-cfg=cfg(semver_checks)"));
 
         let mut cfg_values: IndexMap<String, Vec<String>> = IndexMap::new();
 
@@ -400,13 +401,39 @@ impl Config {
             );
             all.extend(self.device.peri_config.driver_instances());
 
-            all.extend(self.device.peri_config.properties().filter_map(
-                |(name, value)| match value {
-                    Value::Boolean(true) => Some(name.to_string()),
-                    Value::Number(value) => Some(format!("{name}=\"{value}\"")),
-                    _ => None,
-                },
-            ));
+            all.extend(
+                self.device
+                    .peri_config
+                    .properties()
+                    .filter_map(|(name, optional, value)| {
+                        let is_unset = matches!(value, Value::Unset);
+                        let mut syms = match value {
+                            Value::Boolean(true) => Some(vec![name.to_string()]),
+                            Value::NumberList(_) => None,
+                            Value::Generic(v) => v.cfgs(),
+                            Value::StringList(values) => Some(
+                                values
+                                    .iter()
+                                    .map(|val| {
+                                        format!(
+                                            "{name}_{}",
+                                            val.to_lowercase().replace("-", "_").replace("/", "_")
+                                        )
+                                    })
+                                    .collect(),
+                            ),
+                            Value::Number(value) => Some(vec![format!("{name}=\"{value}\"")]),
+                            _ => None,
+                        };
+
+                        if optional && !is_unset {
+                            syms.get_or_insert_default().push(format!("{name}_is_set"));
+                        }
+
+                        syms
+                    })
+                    .flatten(),
+            );
             all
         })
     }
@@ -455,12 +482,13 @@ impl Config {
         let cores = number(self.device.cores);
         let trm = &self.device.trm;
 
+        let mut for_each_macros = vec![];
+
         let peripheral_properties =
             self.device
                 .peri_config
                 .properties()
-                .flat_map(|(name, value)| match value {
-                    Value::Unset => quote! {},
+                .flat_map(|(name, _optional, value)| match value {
                     Value::Number(value) => {
                         let value = number(value); // ensure no numeric suffix is added
                         quote! {
@@ -471,6 +499,23 @@ impl Config {
                     Value::Boolean(value) => quote! {
                         (#name) => { #value };
                     },
+                    Value::NumberList(numbers) => {
+                        let numbers = numbers.into_iter().map(number).collect::<Vec<_>>();
+                        for_each_macros.push(generate_for_each_macro(
+                            &name.replace(".", "_"),
+                            &[("all", &numbers)],
+                        ));
+                        quote! {}
+                    }
+                    Value::Generic(v) => {
+                        if let Some(for_each) = v.for_each_macro() {
+                            for_each_macros.push(for_each);
+                        }
+                        v.property_macro_branches()
+                    }
+                    Value::Unset | Value::StringList(_) => {
+                        quote! {}
+                    }
                 });
 
         // Not public API, can use a private macro:
@@ -507,6 +552,8 @@ impl Config {
             macro_rules! memory_range {
                 #(#region_branches)*
             }
+
+            #(#for_each_macros)*
         });
 
         tokens
@@ -624,6 +671,7 @@ impl Config {
         cfgs
     }
 
+    /// For each symbol generates a cargo directive that activates it.
     pub fn list_of_cfgs(&self) -> Vec<String> {
         self.active_cfgs()
             .iter()
@@ -847,12 +895,16 @@ pub fn generate_build_script_utils() -> TokenStream {
 
         impl Config {
             fn define_cfgs(&self) {
-                #(println!(#check_cfgs);)*
-
+                emit_check_cfg_directives();
                 for cfg in self.cfgs {
                     println!("{cfg}");
                 }
             }
+        }
+
+        /// Prints `cargo:rustc-check-cfg` lines.
+        pub fn emit_check_cfg_directives() {
+            #(println!(#check_cfgs);)*
         }
     }
 }
@@ -862,7 +914,7 @@ pub fn generate_lib_rs() -> TokenStream {
         let feature = format!("{c}");
         let file = format!("_generated_{c}.rs");
         quote! {
-            #[cfg(all(not(feature = "build-script"), feature = #feature))]
+            #[cfg(feature = #feature)]
             include!(#file);
         }
     });
@@ -978,7 +1030,12 @@ pub fn generate_chip_support_status(output: &mut impl Write) -> std::fmt::Result
 
     // Calculate the width of the first column.
     let driver_col_width = std::iter::once("Driver")
-        .chain(PeriConfig::drivers().iter().map(|i| i.name))
+        .chain(
+            PeriConfig::drivers()
+                .iter()
+                .filter(|i| !i.hide_from_peri_table)
+                .map(|i| i.name),
+        )
         .map(|c| c.len())
         .max()
         .unwrap();
@@ -1002,7 +1059,15 @@ pub fn generate_chip_support_status(output: &mut impl Write) -> std::fmt::Result
     writeln!(output)?;
 
     // Driver support status
-    for SupportItem { name, config_group } in PeriConfig::drivers() {
+    for SupportItem {
+        name,
+        config_group,
+        hide_from_peri_table,
+    } in PeriConfig::drivers()
+    {
+        if *hide_from_peri_table {
+            continue;
+        }
         write!(output, "| {name:driver_col_width$} |")?;
         for chip in Chip::iter() {
             let config = Config::for_chip(&chip);

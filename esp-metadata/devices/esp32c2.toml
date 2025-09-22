@@ -31,7 +31,7 @@ peripherals = [
     { name = "LPWR", pac = "RTC_CNTL" },
     { name = "MODEM_CLKRST" },
     { name = "SENSITIVE" },
-    { name = "SHA" },
+    { name = "SHA", interrupts = { peri = "SHA" } },
     { name = "SPI0" },
     { name = "SPI1" },
     { name = "SPI2", interrupts = { peri = "SPI2" } },
@@ -62,6 +62,7 @@ symbols = [
     # Additional peripherals defined by us (the developers):
     "gdma",
     "phy",
+    "swd",
 
     # ROM capabilities
     "rom_crc_le",
@@ -73,9 +74,18 @@ symbols = [
     "pm_support_bt_wakeup",
     "uart_support_wakeup_int",
     "gpio_support_deepsleep_wakeup",
+
+    # Which bluetooth implementation
+    "npl",
 ]
 
 memory = [{ name = "dram", start = 0x3FCA_0000, end = 0x3FCE_0000 }]
+
+[device.soc]
+cpu_has_csr_pc = true
+rc_fast_clk_default = 17_500_000
+rc_slow_clock = 136_000
+xtal_options = [26, 40]
 
 [device.adc]
 support_status = "partial"
@@ -241,6 +251,11 @@ bus_timeout_is_exponential = true
 support_status = "partial"
 status_registers = 2
 
+[device.sha]
+support_status = "partial"
+dma = true
+algo = { sha1 = 0, sha224 = 1, sha256 = 2 }
+
 [device.spi_master]
 support_status = "supported"
 instances = [
@@ -248,12 +263,17 @@ instances = [
 ]
 
 [device.spi_slave]
+support_status = "partial"
 instances = [
     { name = "spi2", sys_instance = "Spi2", sclk = "FSPICLK",  mosi = "FSPID",  miso = "FSPIQ",  cs = "FSPICS0" },
 ]
 
 [device.timergroup]
+support_status = "partial"
 instances = [{ name = "timg0" }]
+timg_has_divcnt_rst = true
+default_clock_source = 0 # use_xtal = false
+default_wdt_clock_source = 0 # use_wdt_xtal = false
 
 [device.uart]
 support_status = "supported"
@@ -261,14 +281,17 @@ instances = [
     { name = "uart0", sys_instance = "Uart0", tx = "U0TXD", rx = "U0RXD", cts = "U0CTS", rts = "U0RTS" },
     { name = "uart1", sys_instance = "Uart1", tx = "U1TXD", rx = "U1RXD", cts = "U1CTS", rts = "U1RTS" },
 ]
+ram_size = 128
+
+[device.rng]
+support_status = "partial"
+apb_cycle_wait_num = 16 # TODO
 
 # Other drivers which are partially supported but have no other configuration:
 
 ## Crypto
 # [device.aes] Product portfolio lists AES, but TRM only has XTS_AES?
 [device.ecc]
-[device.sha]
-[device.rng]
 
 ## Interfaces
 [device.ledc]
@@ -283,3 +306,5 @@ instances = [
 ## Radio
 [device.wifi]
 [device.bt]
+[device.phy]
+combo_module = true

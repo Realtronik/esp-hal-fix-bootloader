@@ -294,10 +294,11 @@ fn map_raw(core: Cpu, interrupt: Interrupt, cpu_interrupt_number: u32) {
 /// Get cpu interrupt assigned to peripheral interrupt
 #[inline]
 unsafe fn assigned_cpu_interrupt(interrupt: Interrupt) -> Option<CpuInterrupt> {
-    let interrupt_number = interrupt as isize;
-    let intr_map_base = crate::soc::registers::INTERRUPT_MAP_BASE as *mut u32;
+    let cpu_intr = INTERRUPT_CORE0::regs()
+        .core_0_intr_map(interrupt as usize)
+        .read()
+        .bits();
 
-    let cpu_intr = unsafe { intr_map_base.offset(interrupt_number).read_volatile() };
     if cpu_intr > 0 && cpu_intr != DISABLED_CPU_INTERRUPT {
         Some(unsafe { core::mem::transmute::<u32, CpuInterrupt>(cpu_intr) })
     } else {
@@ -311,6 +312,7 @@ pub(crate) fn bound_cpu_interrupt_for(_cpu: Cpu, interrupt: Interrupt) -> Option
 
 mod vectored {
     use super::*;
+    use crate::interrupt::IsrCallback;
 
     // Setup interrupts ready for vectoring
     #[doc(hidden)]
@@ -386,23 +388,23 @@ mod vectored {
     /// # Safety
     ///
     /// This will replace any previously bound interrupt handler
-    pub unsafe fn bind_interrupt(interrupt: Interrupt, handler: unsafe extern "C" fn()) {
+    pub unsafe fn bind_interrupt(interrupt: Interrupt, handler: IsrCallback) {
         unsafe {
-            let ptr = &pac::__EXTERNAL_INTERRUPTS[interrupt as usize]._handler as *const _
-                as *mut unsafe extern "C" fn();
-            ptr.write_volatile(handler);
+            let ptr =
+                &pac::__EXTERNAL_INTERRUPTS[interrupt as usize]._handler as *const _ as *mut usize;
+            ptr.write_volatile(handler.raw_value());
         }
     }
 
     /// Returns the currently bound interrupt handler.
-    pub fn bound_handler(interrupt: Interrupt) -> Option<unsafe extern "C" fn()> {
+    pub fn bound_handler(interrupt: Interrupt) -> Option<IsrCallback> {
         unsafe {
-            let addr = pac::__EXTERNAL_INTERRUPTS[interrupt as usize]._handler;
-            if addr as usize == 0 {
+            let addr = pac::__EXTERNAL_INTERRUPTS[interrupt as usize]._handler as usize;
+            if addr == 0 {
                 return None;
             }
 
-            Some(addr)
+            Some(IsrCallback::from_raw(addr))
         }
     }
 }
@@ -540,45 +542,6 @@ mod classic {
             .write(|w| unsafe { w.bits(level as u32 + 1) });
 
         prev_interrupt_priority
-    }
-
-    #[cfg(feature = "rt")]
-    mod rt {
-        use super::*;
-
-        #[unsafe(link_section = ".trap")]
-        #[unsafe(no_mangle)]
-        pub(super) unsafe extern "C" fn _handle_priority() -> u32 {
-            // Both C6 and H2 have 5 bits of code. The riscv crate masks 31 bits, which then
-            // causes a bounds check to be present.
-            let interrupt_id: usize = riscv::register::mcause::read().bits() & 0x1f;
-            let intr = INTERRUPT_CORE0::regs();
-            let interrupt_priority = intr.cpu_int_pri(interrupt_id).read().bits();
-
-            let prev_interrupt_priority = intr.cpu_int_thresh().read().bits();
-            if interrupt_priority < 15 {
-                // leave interrupts disabled if interrupt is of max priority.
-                intr.cpu_int_thresh()
-                    .write(|w| unsafe { w.bits(interrupt_priority + 1) }); // set the prio threshold to 1 more than current interrupt prio
-                unsafe { riscv::interrupt::enable() };
-            }
-            prev_interrupt_priority
-        }
-
-        #[unsafe(link_section = ".trap")]
-        #[unsafe(no_mangle)]
-        unsafe extern "C" fn _restore_priority(stored_prio: u32) {
-            riscv::interrupt::disable();
-            let intr = INTERRUPT_CORE0::regs();
-            intr.cpu_int_thresh()
-                .write(|w| unsafe { w.bits(stored_prio) });
-        }
-
-        /// Globally exported so assembly code can call it.
-        #[unsafe(no_mangle)]
-        unsafe extern "C" fn priority(cpu_interrupt: CpuInterrupt) -> Priority {
-            super::priority(cpu_interrupt)
-        }
     }
 }
 
@@ -722,53 +685,6 @@ mod plic {
 
         prev_interrupt_priority
     }
-
-    #[cfg(feature = "rt")]
-    mod rt {
-        use super::*;
-        /// Get interrupt priority - called by assembly code
-        #[unsafe(no_mangle)]
-        pub(super) unsafe extern "C" fn priority(cpu_interrupt: CpuInterrupt) -> Priority {
-            super::priority(cpu_interrupt)
-        }
-
-        #[unsafe(no_mangle)]
-        #[unsafe(link_section = ".trap")]
-        pub(super) unsafe extern "C" fn _handle_priority() -> u32 {
-            let interrupt_id: usize = riscv::register::mcause::read().code(); // MSB is whether its exception or interrupt.
-            let interrupt_priority = PLIC_MX::regs()
-                .mxint_pri(interrupt_id)
-                .read()
-                .cpu_mxint_pri()
-                .bits();
-
-            let prev_interrupt_priority = PLIC_MX::regs()
-                .mxint_thresh()
-                .read()
-                .cpu_mxint_thresh()
-                .bits();
-            if interrupt_priority < 15 {
-                // leave interrupts disabled if interrupt is of max priority.
-                PLIC_MX::regs()
-                    .mxint_thresh()
-                    .write(|w| unsafe { w.cpu_mxint_thresh().bits(interrupt_priority + 1) });
-
-                unsafe {
-                    riscv::interrupt::enable();
-                }
-            }
-            prev_interrupt_priority as u32
-        }
-
-        #[unsafe(no_mangle)]
-        #[unsafe(link_section = ".trap")]
-        pub(super) unsafe extern "C" fn _restore_priority(stored_prio: u32) {
-            riscv::interrupt::disable();
-            PLIC_MX::regs()
-                .mxint_thresh()
-                .write(|w| unsafe { w.cpu_mxint_thresh().bits(stored_prio as u8) });
-        }
-    }
 }
 
 #[cfg(feature = "rt")]
@@ -818,7 +734,12 @@ mod rt {
 
         unsafe {
             let vec_table = (&_vector_table as *const u32).addr();
-            mtvec::write(vec_table, mtvec::TrapMode::Vectored);
+            mtvec::write({
+                let mut mtvec = mtvec::Mtvec::from_bits(0);
+                mtvec.set_trap_mode(mtvec::TrapMode::Vectored);
+                mtvec.set_address(vec_table);
+                mtvec
+            });
 
             crate::interrupt::init_vectoring();
         };
@@ -831,7 +752,7 @@ mod rt {
 
     #[unsafe(no_mangle)]
     #[ram]
-    unsafe fn handle_interrupts(cpu_intr: CpuInterrupt, context: &mut TrapFrame) {
+    unsafe fn handle_interrupts(cpu_intr: CpuInterrupt) {
         let core = Cpu::current();
         let status = status(core);
 
@@ -843,81 +764,24 @@ mod rt {
         let configured_interrupts = vectored::configured_interrupts(core, status, prio);
 
         for interrupt_nr in configured_interrupts.iterator() {
-            let handler = unsafe { pac::__EXTERNAL_INTERRUPTS[interrupt_nr as usize]._handler };
+            let handler =
+                unsafe { pac::__EXTERNAL_INTERRUPTS[interrupt_nr as usize]._handler } as usize;
+            let not_nested = (handler & 1) == 1;
+            let handler = handler & !1;
 
-            let handler: fn(&mut TrapFrame) = unsafe {
-                core::mem::transmute::<unsafe extern "C" fn(), fn(&mut TrapFrame)>(handler)
-            };
-            handler(context);
+            let handler: fn() = unsafe { core::mem::transmute::<usize, fn()>(handler) };
+
+            if not_nested || prio == Priority::Priority15 {
+                handler();
+            } else {
+                let elevated = prio as u8;
+                unsafe {
+                    let level =
+                        change_current_runlevel(unwrap!(Priority::try_from(elevated as u32)));
+                    riscv::interrupt::nested(handler);
+                    change_current_runlevel(level);
+                }
+            }
         }
     }
-
-    // The compiler generates quite unfortunate code for
-    // ```rust,ignore
-    // #[no_mangle]
-    // #[ram]
-    // unsafe fn interrupt1(context: &mut TrapFrame) {
-    //    handle_interrupts(CpuInterrupt::Interrupt1, context)
-    // }
-    // ```
-    //
-    // Resulting in
-    // ```asm,ignore
-    // interrupt1:
-    // add	sp,sp,-16
-    // sw	ra,12(sp)
-    // sw	s0,8(sp)
-    // add	s0,sp,16
-    // mv	a1,a0
-    // li	a0,1
-    // lw	ra,12(sp)
-    // lw	s0,8(sp)
-    // add	sp,sp,16
-    // auipc	t1,0x0
-    // jr	handle_interrupts
-    // ```
-    //
-    // We can do better manually - use Rust again once/if that changes
-    macro_rules! interrupt_handler {
-        ($num:literal) => {
-            core::arch::global_asm! {
-                concat!(
-                r#"
-                    .section .rwtext, "ax"
-                    .global interrupt"#,$num,r#"
-
-                interrupt"#,$num,r#":
-                    mv a1, a0
-                    li a0,"#,$num,r#"
-                    j handle_interrupts
-                "#
-            )
-            }
-        };
-    }
-
-    interrupt_handler!(1);
-    interrupt_handler!(2);
-    interrupt_handler!(3);
-    interrupt_handler!(4);
-    interrupt_handler!(5);
-    interrupt_handler!(6);
-    interrupt_handler!(7);
-    interrupt_handler!(8);
-    interrupt_handler!(9);
-    interrupt_handler!(10);
-    interrupt_handler!(11);
-    interrupt_handler!(12);
-    interrupt_handler!(13);
-    interrupt_handler!(14);
-    interrupt_handler!(15);
-
-    #[cfg(plic)]
-    interrupt_handler!(16);
-    #[cfg(plic)]
-    interrupt_handler!(17);
-    #[cfg(plic)]
-    interrupt_handler!(18);
-    #[cfg(plic)]
-    interrupt_handler!(19);
 }

@@ -1,9 +1,42 @@
-use core::marker::PhantomData;
+use core::{
+    marker::PhantomData,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use super::{AdcConfig, Attenuation};
-use crate::peripherals::{ADC1, ADC2, RTC_IO, SENS};
+use crate::{
+    peripherals::{ADC1, ADC2, RTC_IO, SENS},
+    private::{self},
+};
 
 pub(super) const NUM_ATTENS: usize = 10;
+
+// ADC2 cannot be used with `radio` functionality on `esp32`, this global helps us to track it's
+// state to prevent unexpected behaviour
+static ADC2_IN_USE: AtomicBool = AtomicBool::new(false);
+
+/// ADC Error
+#[derive(Debug)]
+pub enum Error {
+    /// `ADC2` is used together with `radio`.
+    Adc2InUse,
+}
+
+#[doc(hidden)]
+/// Tries to "claim" `ADC2` peripheral and set its status
+pub fn try_claim_adc2(_: private::Internal) -> Result<(), Error> {
+    if ADC2_IN_USE.fetch_or(true, Ordering::Relaxed) {
+        Err(Error::Adc2InUse)
+    } else {
+        Ok(())
+    }
+}
+
+#[doc(hidden)]
+/// Resets `ADC2` usage status to `Unused`
+pub fn release_adc2(_: private::Internal) {
+    ADC2_IN_USE.store(false, Ordering::Relaxed);
+}
 
 /// The sampling/readout resolution of the ADC.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -44,6 +77,8 @@ pub trait RegisterAccess {
     fn read_done_sar() -> bool;
 
     fn read_data_sar() -> u16;
+
+    fn instance_number() -> u8;
 }
 
 impl RegisterAccess for ADC1<'_> {
@@ -118,6 +153,10 @@ impl RegisterAccess for ADC1<'_> {
             .read()
             .meas1_data_sar()
             .bits()
+    }
+
+    fn instance_number() -> u8 {
+        1
     }
 }
 
@@ -194,6 +233,10 @@ impl RegisterAccess for ADC2<'_> {
             .meas2_data_sar()
             .bits()
     }
+
+    fn instance_number() -> u8 {
+        2
+    }
 }
 
 /// Analog-to-Digital Converter peripheral driver.
@@ -210,7 +253,18 @@ where
 {
     /// Configure a given ADC instance using the provided configuration, and
     /// initialize the ADC for use
+    ///
+    /// # Panics
+    ///
+    /// `ADC2` cannot be used simultaneously with `radio` functionalities, otherwise this function
+    /// will panic.
     pub fn new(adc_instance: ADCI, config: AdcConfig<ADCI>) -> Self {
+        if ADCI::instance_number() == 2 && try_claim_adc2(private::Internal).is_err() {
+            panic!(
+                "ADC2 is already in use by Radio. On ESP32, ADC2 cannot be used simultaneously with Wi-Fi or Bluetooth."
+            );
+        }
+
         let sensors = SENS::regs();
 
         // Set reading and sampling resolution
@@ -286,26 +340,29 @@ where
     /// This method takes an [AdcPin](super::AdcPin) reference, as it is
     /// expected that the ADC will be able to sample whatever channel
     /// underlies the pin.
-    pub fn read_oneshot<PIN>(&mut self, _pin: &mut super::AdcPin<PIN, ADCI>) -> nb::Result<u16, ()>
+    pub fn read_oneshot<PIN>(&mut self, pin: &mut super::AdcPin<PIN, ADCI>) -> nb::Result<u16, ()>
     where
         PIN: super::AdcChannel,
     {
-        if self.attenuations[PIN::CHANNEL as usize].is_none() {
-            panic!("Channel {} is not configured reading!", PIN::CHANNEL);
+        if self.attenuations[pin.pin.adc_channel() as usize].is_none() {
+            panic!(
+                "Channel {} is not configured reading!",
+                pin.pin.adc_channel()
+            );
         }
 
         if let Some(active_channel) = self.active_channel {
             // There is conversion in progress:
             // - if it's for a different channel try again later
             // - if it's for the given channel, go ahead and check progress
-            if active_channel != PIN::CHANNEL {
+            if active_channel != pin.pin.adc_channel() {
                 return Err(nb::Error::WouldBlock);
             }
         } else {
             // If no conversions are in progress, start a new one for given channel
-            self.active_channel = Some(PIN::CHANNEL);
+            self.active_channel = Some(pin.pin.adc_channel());
 
-            ADCI::set_en_pad(PIN::CHANNEL);
+            ADCI::set_en_pad(pin.pin.adc_channel());
 
             ADCI::clear_start_sar();
             ADCI::set_start_sar();
@@ -343,32 +400,8 @@ impl<ADC1> Adc<'_, ADC1, crate::Blocking> {
     }
 }
 
-mod adc_implementation {
-    crate::analog::adc::impl_adc_interface! {
-        ADC1 [
-            (GPIO36<'_>, 0), // Alt. name: SENSOR_VP
-            (GPIO37<'_>, 1), // Alt. name: SENSOR_CAPP
-            (GPIO38<'_>, 2), // Alt. name: SENSOR_CAPN
-            (GPIO39<'_>, 3), // Alt. name: SENSOR_VN
-            (GPIO33<'_>, 4), // Alt. name: 32K_XP
-            (GPIO32<'_>, 5), // Alt. name: 32K_XN
-            (GPIO34<'_>, 6), // Alt. name: VDET_1
-            (GPIO35<'_>, 7), // Alt. name: VDET_2
-        ]
-    }
-
-    crate::analog::adc::impl_adc_interface! {
-        ADC2 [
-            (GPIO4<'_>,  0),
-            (GPIO0<'_>,  1),
-            (GPIO2<'_>,  2),
-            (GPIO15<'_>, 3), // Alt. name: MTDO
-            (GPIO13<'_>, 4), // Alt. name: MTCK
-            (GPIO12<'_>, 5), // Alt. name: MTDI
-            (GPIO14<'_>, 6), // Alt. name: MTMS
-            (GPIO27<'_>, 7),
-            (GPIO25<'_>, 8),
-            (GPIO26<'_>, 9),
-        ]
+impl Drop for ADC2<'_> {
+    fn drop(&mut self) {
+        release_adc2(private::Internal);
     }
 }

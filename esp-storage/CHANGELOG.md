@@ -9,15 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `defmt` feature and `FlashStorage`, `FlashStorageError` now implements `Defmt` (#4127)
+- `Drop` impl for `FlashStorage` (#4132)
 
 ### Changed
 
+- `FlashStorage::new()` now panics when it's already being in use (#4132)
 
 ### Fixed
 
 
 ### Removed
 
+- `Default` impl for `FlashStorage` (#4132)
+
+## [v0.8.0] - 2025-09-10
+
+### Added
+
+- Added strategies for dealing with multi-core systems (#4082)
 
 ## [v0.7.0] - 2025-07-16
 

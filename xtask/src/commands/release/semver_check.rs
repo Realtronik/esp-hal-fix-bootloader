@@ -6,14 +6,17 @@ use strum::IntoEnumIterator;
 
 use crate::Package;
 
+/// Commands for performing semver checks on the public API of packages.
 #[derive(Debug, Subcommand)]
 pub enum SemverCheckCmd {
     GenerateBaseline,
     Check,
 }
 
+/// Arguments for performing semver checks on the public API of packages.
 #[derive(Debug, Args)]
 pub struct SemverCheckArgs {
+    /// The semver check command to run.
     #[command(subcommand)]
     pub command: SemverCheckCmd,
 
@@ -26,6 +29,7 @@ pub struct SemverCheckArgs {
     pub chips: Vec<Chip>,
 }
 
+/// Perform semver checks on the public API of packages.
 pub fn semver_checks(workspace: &Path, args: SemverCheckArgs) -> anyhow::Result<()> {
     #[cfg(not(feature = "semver-checks"))]
     {
@@ -48,6 +52,7 @@ pub fn semver_checks(workspace: &Path, args: SemverCheckArgs) -> anyhow::Result<
     }
 }
 
+/// Module containing functions for performing semver checks on the public API of packages.
 #[cfg(feature = "semver-checks")]
 pub mod checker {
     use std::{
@@ -61,9 +66,10 @@ pub mod checker {
 
     use crate::{
         Package,
-        semver_check::{build_doc_json, minimum_update, remove_unstable_items},
+        semver_check::{build_doc_json, minimum_update},
     };
 
+    /// Generate the API baselines for the specified packages and chips.
     pub fn generate_baseline(
         workspace: &Path,
         packages: Vec<Package>,
@@ -78,8 +84,6 @@ pub mod checker {
                 let package_path = crate::windows_safe_path(&workspace.join(&package_name));
 
                 let current_path = build_doc_json(package, chip, &package_path)?;
-
-                remove_unstable_items(&current_path)?;
 
                 let file_name = if package.chip_features_matter() {
                     chip.to_string()
@@ -107,6 +111,7 @@ pub mod checker {
         Ok(())
     }
 
+    /// Determine the minimum required version bump for the specified package and chips.
     pub fn min_package_update(
         workspace: &Path,
         package: Package,
@@ -142,6 +147,7 @@ pub mod checker {
         Ok(highest_result)
     }
 
+    /// Check for breaking changes in the specified packages and chips.
     pub fn check_for_breaking_changes(
         workspace: &Path,
         packages: Vec<Package>,

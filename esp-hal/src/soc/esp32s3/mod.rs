@@ -10,9 +10,6 @@
 //!    * I2S_DEFAULT_CLK_SRC: 2 - I2S clock source
 
 crate::unstable_module! {
-    pub mod efuse;
-    #[cfg(feature = "psram")]
-    pub mod psram;
     pub mod trng;
     pub mod ulp_core;
 }
@@ -35,9 +32,6 @@ pub(crate) mod constants {
     pub const RMT_CLOCK_SRC: u8 = 1;
     /// RMT Clock source frequency.
     pub const RMT_CLOCK_SRC_FREQ: Rate = Rate::from_mhz(80);
-
-    /// A reference clock tick of 1 MHz.
-    pub const RC_FAST_CLK: Rate = Rate::from_khz(17500);
 }
 
 #[unsafe(link_section = ".rwtext")]
@@ -47,17 +41,56 @@ pub(crate) unsafe fn configure_cpu_caches() {
     // see https://github.com/apache/incubator-nuttx/blob/master/arch/xtensa/src/esp32s3/esp32s3_start.c
 
     unsafe extern "C" {
+        fn Cache_Suspend_DCache();
+
+        fn Cache_Resume_DCache(param: u32);
+
         fn rom_config_instruction_cache_mode(
+            cfg_cache_size: u32,
+            cfg_cache_ways: u8,
+            cfg_cache_line_size: u8,
+        );
+
+        fn rom_config_data_cache_mode(
             cfg_cache_size: u32,
             cfg_cache_ways: u8,
             cfg_cache_line_size: u8,
         );
     }
 
-    // ideally these should be configurable
-    const CONFIG_ESP32S3_INSTRUCTION_CACHE_SIZE: u32 = 0x8000; // ESP32S3_INSTRUCTION_CACHE_32KB
-    const CONFIG_ESP32S3_ICACHE_ASSOCIATED_WAYS: u8 = 8; // ESP32S3_INSTRUCTION_CACHE_8WAYS
-    const CONFIG_ESP32S3_INSTRUCTION_CACHE_LINE_SIZE: u8 = 32; // ESP32S3_INSTRUCTION_CACHE_LINE_32B
+    const CONFIG_ESP32S3_INSTRUCTION_CACHE_SIZE: u32 = match () {
+        _ if cfg!(instruction_cache_size_32kb) => 0x8000,
+        _ if cfg!(instruction_cache_size_16kb) => 0x4000,
+        _ => core::unreachable!(),
+    };
+    const CONFIG_ESP32S3_ICACHE_ASSOCIATED_WAYS: u8 = match () {
+        _ if cfg!(icache_associated_ways_8) => 8,
+        _ if cfg!(icache_associated_ways_4) => 4,
+        _ => core::unreachable!(),
+    };
+    const CONFIG_ESP32S3_INSTRUCTION_CACHE_LINE_SIZE: u8 = match () {
+        _ if cfg!(instruction_cache_line_size_32b) => 32,
+        _ if cfg!(instruction_cache_line_size_16b) => 16,
+        _ => core::unreachable!(),
+    };
+
+    const CONFIG_ESP32S3_DATA_CACHE_SIZE: u32 = match () {
+        _ if cfg!(data_cache_size_64kb) => 0x10000,
+        _ if cfg!(data_cache_size_32kb) => 0x8000,
+        _ if cfg!(data_cache_size_16kb) => 0x4000,
+        _ => core::unreachable!(),
+    };
+    const CONFIG_ESP32S3_DCACHE_ASSOCIATED_WAYS: u8 = match () {
+        _ if cfg!(dcache_associated_ways_8) => 8,
+        _ if cfg!(dcache_associated_ways_4) => 4,
+        _ => core::unreachable!(),
+    };
+    const CONFIG_ESP32S3_DATA_CACHE_LINE_SIZE: u8 = match () {
+        _ if cfg!(data_cache_line_size_64b) => 64,
+        _ if cfg!(data_cache_line_size_32b) => 32,
+        _ if cfg!(data_cache_line_size_16b) => 16,
+        _ => core::unreachable!(),
+    };
 
     // Configure the mode of instruction cache: cache size, cache line size.
     unsafe {
@@ -66,6 +99,17 @@ pub(crate) unsafe fn configure_cpu_caches() {
             CONFIG_ESP32S3_ICACHE_ASSOCIATED_WAYS,
             CONFIG_ESP32S3_INSTRUCTION_CACHE_LINE_SIZE,
         );
+    }
+
+    // Configure the mode of data : cache size, cache line size.
+    unsafe {
+        Cache_Suspend_DCache();
+        rom_config_data_cache_mode(
+            CONFIG_ESP32S3_DATA_CACHE_SIZE,
+            CONFIG_ESP32S3_DCACHE_ASSOCIATED_WAYS,
+            CONFIG_ESP32S3_DATA_CACHE_LINE_SIZE,
+        );
+        Cache_Resume_DCache(0);
     }
 }
 

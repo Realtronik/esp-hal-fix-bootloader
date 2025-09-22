@@ -16,7 +16,7 @@ pub(crate) fn esp32c6_rtc_bbpll_configure_raw(_xtal_freq: u32, pll_freq: u32) {
     // Do nothing
     debug_assert!(pll_freq == 480);
 
-    critical_section::with(|_| {
+    crate::ESP_HAL_LOCK.lock(|| {
         // enable i2c mst clk by force on (temporarily)
         let was_i2c_mst_en = MODEM_LPCON::regs().clk_conf().read().clk_i2c_mst_en().bit();
         MODEM_LPCON::regs()
@@ -141,7 +141,7 @@ pub(crate) fn esp32c6_rtc_apb_freq_update(apb_freq: ApbClock) {
 
     LP_AON::regs()
         .store5()
-        .modify(|_, w| unsafe { w.lp_aon_store5().bits(value) });
+        .modify(|_, w| unsafe { w.data().bits(value) });
 }
 
 fn clk_ll_mspi_fast_set_hs_divider(divider: u32) {
@@ -181,8 +181,9 @@ pub(crate) fn esp32c6_cpu_get_ls_divider() -> u8 {
 
 // clk_ll_cpu_get_hs_divider
 pub(crate) fn esp32c6_cpu_get_hs_divider() -> u8 {
-    let force_120m = PCR::regs().cpu_freq_conf().read().cpu_hs_120m_force().bit();
-    let cpu_hs_div = PCR::regs().cpu_freq_conf().read().cpu_hs_div_num().bits();
+    let cpu_freq_conf = PCR::regs().cpu_freq_conf().read();
+    let force_120m = cpu_freq_conf.cpu_hs_120m_force().bit();
+    let cpu_hs_div = cpu_freq_conf.cpu_hs_div_num().bits();
     if cpu_hs_div == 0 && force_120m {
         return 4;
     }

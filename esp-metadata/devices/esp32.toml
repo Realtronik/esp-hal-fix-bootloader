@@ -39,7 +39,7 @@ peripherals = [
     { name = "PCNT" },
     { name = "RMT" },
     { name = "RNG" },
-    { name = "RSA" },
+    { name = "RSA", interrupts = { peri = "RSA" } },
     { name = "LPWR", pac = "RTC_CNTL" },
     { name = "RTC_I2C" },
     { name = "RTC_IO" },
@@ -95,9 +95,18 @@ symbols = [
     "pm_support_ext1_wakeup",
     "pm_support_touch_sensor_wakeup",
     "ulp_supported",
+
+    # Which bluetooth implementation
+    "btdm",
 ]
 
 memory = [{ name = "dram", start = 0x3FFA_E000, end = 0x4000_0000 }]
+
+[device.soc]
+ref_tick_hz = 1_000_000
+rc_fast_clk_default = 8_500_000
+rc_slow_clock = 150_000
+xtal_options = [26, 40]
 
 [device.adc]
 support_status = "partial"
@@ -105,6 +114,16 @@ instances = [
     { name = "adc1" },
     { name = "adc2" },
 ]
+
+[device.aes]
+support_status = "partial"
+has_split_text_registers = false
+endianness_configurable = true
+key_length = { options = [
+    { bits = 128, encrypt_mode = 0, decrypt_mode = 4 },
+    { bits = 192, encrypt_mode = 1, decrypt_mode = 5 },
+    { bits = 256, encrypt_mode = 2, decrypt_mode = 6 }
+] }
 
 [device.dac]
 support_status = "partial"
@@ -582,6 +601,16 @@ status_registers = 3
 support_status = "partial"
 ram_start = 0x3ff56800
 channel_ram_size = 64
+channels = ["RxTx", "RxTx", "RxTx", "RxTx", "RxTx", "RxTx", "RxTx", "RxTx"]
+
+[device.rsa]
+support_status = "partial"
+size_increment = 512
+memory_size_bytes = 512
+
+[device.sha]
+support_status = "partial"
+algo = { sha1 = 0, sha256 = 0, sha384 = 0, sha512 = 0 } # fake mode bits, ESP32 has separate register sets
 
 [device.spi_master]
 support_status = "supported"
@@ -591,13 +620,16 @@ instances = [
 ]
 
 [device.spi_slave]
+support_status = "partial"
 instances = [
     { name = "spi2", sys_instance = "Spi2", sclk = "HSPICLK", mosi = "HSPID", miso = "HSPIQ", cs = "HSPICS0" },
     { name = "spi3", sys_instance = "Spi3", sclk = "VSPICLK", mosi = "VSPID", miso = "VSPIQ", cs = "VSPICS0" },
 ]
 
 [device.timergroup]
+support_status = "partial"
 timg_has_timer1 = true
+timg_has_divcnt_rst = false
 instances = [{ name = "timg0" }, { name = "timg1" }]
 
 [device.uart]
@@ -607,6 +639,7 @@ instances = [
     { name = "uart1", sys_instance = "Uart1", tx = "U1TXD", rx = "U1RXD", cts = "U1CTS", rts = "U1RTS" },
     { name = "uart2", sys_instance = "Uart2", tx = "U2TXD", rx = "U2RXD", cts = "U2CTS", rts = "U2RTS" },
 ]
+ram_size = 128
 
 [device.ethernet]
 support_status = "not_supported"
@@ -614,14 +647,13 @@ support_status = "not_supported"
 [device.camera]
 support_status = "not_supported"
 [device.rgb_display]
+support_status = "partial"
+
+[device.rng]
+support_status = "partial"
+apb_cycle_wait_num = 16 # TODO
 
 # Other drivers which are partially supported but have no other configuration:
-
-## Crypto
-[device.aes]
-[device.rsa]
-[device.sha]
-[device.rng]
 
 ## Interfaces
 [device.i2s]
@@ -645,3 +677,5 @@ support_status = "not_supported"
 ## Radio
 [device.wifi]
 [device.bt]
+[device.phy]
+combo_module = true

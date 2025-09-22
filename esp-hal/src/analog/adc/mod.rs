@@ -104,7 +104,6 @@ pub struct AdcPin<PIN, ADCI, CS = ()> {
     /// The underlying GPIO pin
     pub pin: PIN,
     /// Calibration scheme used for the configured ADC pin
-    #[cfg_attr(esp32, allow(unused))]
     pub cal_scheme: CS,
     _phantom: PhantomData<ADCI>,
 }
@@ -112,7 +111,7 @@ pub struct AdcPin<PIN, ADCI, CS = ()> {
 /// Configuration for the ADC.
 #[cfg(feature = "unstable")]
 pub struct AdcConfig<ADCI> {
-    #[cfg_attr(not(esp32), allow(unused))]
+    #[cfg_attr(not(esp32), expect(unused))]
     resolution: Resolution,
     attenuations: [Option<Attenuation>; NUM_ATTENS],
     _phantom: PhantomData<ADCI>,
@@ -132,7 +131,7 @@ impl<ADCI> AdcConfig<ADCI> {
     {
         // TODO revert this on drop
         pin.set_analog(crate::private::Internal);
-        self.attenuations[PIN::CHANNEL as usize] = Some(attenuation);
+        self.attenuations[pin.adc_channel() as usize] = Some(attenuation);
 
         AdcPin {
             pin,
@@ -157,7 +156,7 @@ impl<ADCI> AdcConfig<ADCI> {
     {
         // TODO revert this on drop
         pin.set_analog(crate::private::Internal);
-        self.attenuations[PIN::CHANNEL as usize] = Some(attenuation);
+        self.attenuations[pin.adc_channel() as usize] = Some(attenuation);
 
         AdcPin {
             pin,
@@ -195,7 +194,7 @@ pub trait CalibrationAccess: RegisterAccess {
 /// A helper trait to get the ADC channel of a compatible GPIO pin.
 pub trait AdcChannel {
     /// Channel number used by the ADC
-    const CHANNEL: u8;
+    fn adc_channel(&self) -> u8;
 }
 
 /// A trait abstracting over calibration methods.
@@ -243,16 +242,12 @@ trait AdcCalEfuse {
     fn cal_code(atten: Attenuation) -> Option<u16>;
 }
 
-macro_rules! impl_adc_interface {
-    ($adc:ident [
-        $( ($pin:ident<'_>, $channel:expr) ,)+
-    ]) => {
-        $(
-            impl $crate::analog::adc::AdcChannel for $crate::peripherals::$pin<'_> {
-                const CHANNEL: u8 = $channel;
+for_each_analog_function! {
+    (($ch_name:ident, ADCn_CHm, $adc:literal, $ch:literal), $gpio:ident) => {
+        impl $crate::analog::adc::AdcChannel for $crate::peripherals::$gpio<'_> {
+            fn adc_channel(&self) -> u8 {
+                $ch
             }
-        )+
-    }
+        }
+    };
 }
-
-pub(crate) use impl_adc_interface;

@@ -36,6 +36,39 @@ macro_rules! property {
     ("trm") => {
         "https://www.espressif.com/sites/default/files/documentation/esp32-s3_technical_reference_manual_en.pdf"
     };
+    ("soc.cpu_has_csr_pc") => {
+        false
+    };
+    ("soc.cpu_has_prv_mode") => {
+        false
+    };
+    ("soc.rc_fast_clk_default") => {
+        17500000
+    };
+    ("soc.rc_fast_clk_default", str) => {
+        stringify!(17500000)
+    };
+    ("soc.rc_slow_clock") => {
+        136000
+    };
+    ("soc.rc_slow_clock", str) => {
+        stringify!(136000)
+    };
+    ("soc.xtal_frequency") => {
+        40
+    };
+    ("soc.xtal_frequency", str) => {
+        stringify!(40)
+    };
+    ("aes.dma") => {
+        true
+    };
+    ("aes.has_split_text_registers") => {
+        true
+    };
+    ("aes.endianness_configurable") => {
+        false
+    };
     ("assist_debug.has_sp_monitor") => {
         false
     };
@@ -88,7 +121,7 @@ macro_rules! property {
         true
     };
     ("i2c_master.has_hw_bus_clear") => {
-        true
+        false
     };
     ("i2c_master.has_bus_timeout_enable") => {
         true
@@ -150,14 +183,59 @@ macro_rules! property {
     ("rmt.channel_ram_size", str) => {
         stringify!(48)
     };
+    ("rng.apb_cycle_wait_num") => {
+        16
+    };
+    ("rng.apb_cycle_wait_num", str) => {
+        stringify!(16)
+    };
+    ("rsa.size_increment") => {
+        32
+    };
+    ("rsa.size_increment", str) => {
+        stringify!(32)
+    };
+    ("rsa.memory_size_bytes") => {
+        512
+    };
+    ("rsa.memory_size_bytes", str) => {
+        stringify!(512)
+    };
+    ("sha.dma") => {
+        true
+    };
     ("spi_master.has_octal") => {
         true
     };
     ("timergroup.timg_has_timer1") => {
         true
     };
+    ("timergroup.timg_has_divcnt_rst") => {
+        false
+    };
+    ("timergroup.default_clock_source") => {
+        0
+    };
+    ("timergroup.default_clock_source", str) => {
+        stringify!(0)
+    };
+    ("uart.ram_size") => {
+        128
+    };
+    ("uart.ram_size", str) => {
+        stringify!(128)
+    };
     ("wifi.has_wifi6") => {
         false
+    };
+    ("phy.combo_module") => {
+        true
+    };
+    ("phy.backed_up_digital_register_count") => {
+        21
+    };
+    ("phy.backed_up_digital_register_count", str) => {
+        stringify!(21)
     };
 }
 /// Macro to get the address range of the given memory region.
@@ -166,6 +244,183 @@ macro_rules! property {
 macro_rules! memory_range {
     ("DRAM") => {
         1070104576..1070596096
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_soc_xtal_options {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((40)); _for_each_inner!((all(40)));
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_aes_key_length {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((128)); _for_each_inner!((256)); _for_each_inner!((128, 0, 4));
+        _for_each_inner!((256, 2, 6)); _for_each_inner!((bits(128), (256)));
+        _for_each_inner!((modes(128, 0, 4), (256, 2, 6)));
+    };
+}
+/// This macro can be used to generate code for each channel of the RMT peripheral.
+///
+/// For an explanation on the general syntax, as well as usage of individual/repeated
+/// matchers, refer to [the crate-level documentation][crate#for_each-macros].
+///
+/// This macro has three options for its "Individual matcher" case:
+///
+/// - `all`: `($num:literal)`
+/// - `tx`: `($num:literal, $idx:literal)`
+/// - `rx`: `($num:literal, $idx:literal)`
+///
+/// Macro fragments:
+///
+/// - `$num`: number of the channel, e.g. `0`
+/// - `$idx`: index of the channel among channels of the same capability, e.g. `0`
+///
+/// Example data:
+///
+/// - `all`: `(0)`
+/// - `tx`: `(1, 1)`
+/// - `rx`: `(2, 0)`
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_rmt_channel {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((0)); _for_each_inner!((1)); _for_each_inner!((2));
+        _for_each_inner!((3)); _for_each_inner!((4)); _for_each_inner!((5));
+        _for_each_inner!((6)); _for_each_inner!((7)); _for_each_inner!((0, 0));
+        _for_each_inner!((1, 1)); _for_each_inner!((2, 2)); _for_each_inner!((3, 3));
+        _for_each_inner!((4, 0)); _for_each_inner!((5, 1)); _for_each_inner!((6, 2));
+        _for_each_inner!((7, 3)); _for_each_inner!((all(0), (1), (2), (3), (4), (5), (6),
+        (7))); _for_each_inner!((tx(0, 0), (1, 1), (2, 2), (3, 3)));
+        _for_each_inner!((rx(4, 0), (5, 1), (6, 2), (7, 3)));
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_rsa_exponentiation {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((32)); _for_each_inner!((64)); _for_each_inner!((96));
+        _for_each_inner!((128)); _for_each_inner!((160)); _for_each_inner!((192));
+        _for_each_inner!((224)); _for_each_inner!((256)); _for_each_inner!((288));
+        _for_each_inner!((320)); _for_each_inner!((352)); _for_each_inner!((384));
+        _for_each_inner!((416)); _for_each_inner!((448)); _for_each_inner!((480));
+        _for_each_inner!((512)); _for_each_inner!((544)); _for_each_inner!((576));
+        _for_each_inner!((608)); _for_each_inner!((640)); _for_each_inner!((672));
+        _for_each_inner!((704)); _for_each_inner!((736)); _for_each_inner!((768));
+        _for_each_inner!((800)); _for_each_inner!((832)); _for_each_inner!((864));
+        _for_each_inner!((896)); _for_each_inner!((928)); _for_each_inner!((960));
+        _for_each_inner!((992)); _for_each_inner!((1024)); _for_each_inner!((1056));
+        _for_each_inner!((1088)); _for_each_inner!((1120)); _for_each_inner!((1152));
+        _for_each_inner!((1184)); _for_each_inner!((1216)); _for_each_inner!((1248));
+        _for_each_inner!((1280)); _for_each_inner!((1312)); _for_each_inner!((1344));
+        _for_each_inner!((1376)); _for_each_inner!((1408)); _for_each_inner!((1440));
+        _for_each_inner!((1472)); _for_each_inner!((1504)); _for_each_inner!((1536));
+        _for_each_inner!((1568)); _for_each_inner!((1600)); _for_each_inner!((1632));
+        _for_each_inner!((1664)); _for_each_inner!((1696)); _for_each_inner!((1728));
+        _for_each_inner!((1760)); _for_each_inner!((1792)); _for_each_inner!((1824));
+        _for_each_inner!((1856)); _for_each_inner!((1888)); _for_each_inner!((1920));
+        _for_each_inner!((1952)); _for_each_inner!((1984)); _for_each_inner!((2016));
+        _for_each_inner!((2048)); _for_each_inner!((2080)); _for_each_inner!((2112));
+        _for_each_inner!((2144)); _for_each_inner!((2176)); _for_each_inner!((2208));
+        _for_each_inner!((2240)); _for_each_inner!((2272)); _for_each_inner!((2304));
+        _for_each_inner!((2336)); _for_each_inner!((2368)); _for_each_inner!((2400));
+        _for_each_inner!((2432)); _for_each_inner!((2464)); _for_each_inner!((2496));
+        _for_each_inner!((2528)); _for_each_inner!((2560)); _for_each_inner!((2592));
+        _for_each_inner!((2624)); _for_each_inner!((2656)); _for_each_inner!((2688));
+        _for_each_inner!((2720)); _for_each_inner!((2752)); _for_each_inner!((2784));
+        _for_each_inner!((2816)); _for_each_inner!((2848)); _for_each_inner!((2880));
+        _for_each_inner!((2912)); _for_each_inner!((2944)); _for_each_inner!((2976));
+        _for_each_inner!((3008)); _for_each_inner!((3040)); _for_each_inner!((3072));
+        _for_each_inner!((3104)); _for_each_inner!((3136)); _for_each_inner!((3168));
+        _for_each_inner!((3200)); _for_each_inner!((3232)); _for_each_inner!((3264));
+        _for_each_inner!((3296)); _for_each_inner!((3328)); _for_each_inner!((3360));
+        _for_each_inner!((3392)); _for_each_inner!((3424)); _for_each_inner!((3456));
+        _for_each_inner!((3488)); _for_each_inner!((3520)); _for_each_inner!((3552));
+        _for_each_inner!((3584)); _for_each_inner!((3616)); _for_each_inner!((3648));
+        _for_each_inner!((3680)); _for_each_inner!((3712)); _for_each_inner!((3744));
+        _for_each_inner!((3776)); _for_each_inner!((3808)); _for_each_inner!((3840));
+        _for_each_inner!((3872)); _for_each_inner!((3904)); _for_each_inner!((3936));
+        _for_each_inner!((3968)); _for_each_inner!((4000)); _for_each_inner!((4032));
+        _for_each_inner!((4064)); _for_each_inner!((4096)); _for_each_inner!((all(32),
+        (64), (96), (128), (160), (192), (224), (256), (288), (320), (352), (384), (416),
+        (448), (480), (512), (544), (576), (608), (640), (672), (704), (736), (768),
+        (800), (832), (864), (896), (928), (960), (992), (1024), (1056), (1088), (1120),
+        (1152), (1184), (1216), (1248), (1280), (1312), (1344), (1376), (1408), (1440),
+        (1472), (1504), (1536), (1568), (1600), (1632), (1664), (1696), (1728), (1760),
+        (1792), (1824), (1856), (1888), (1920), (1952), (1984), (2016), (2048), (2080),
+        (2112), (2144), (2176), (2208), (2240), (2272), (2304), (2336), (2368), (2400),
+        (2432), (2464), (2496), (2528), (2560), (2592), (2624), (2656), (2688), (2720),
+        (2752), (2784), (2816), (2848), (2880), (2912), (2944), (2976), (3008), (3040),
+        (3072), (3104), (3136), (3168), (3200), (3232), (3264), (3296), (3328), (3360),
+        (3392), (3424), (3456), (3488), (3520), (3552), (3584), (3616), (3648), (3680),
+        (3712), (3744), (3776), (3808), (3840), (3872), (3904), (3936), (3968), (4000),
+        (4032), (4064), (4096)));
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_rsa_multiplication {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((32)); _for_each_inner!((64)); _for_each_inner!((96));
+        _for_each_inner!((128)); _for_each_inner!((160)); _for_each_inner!((192));
+        _for_each_inner!((224)); _for_each_inner!((256)); _for_each_inner!((288));
+        _for_each_inner!((320)); _for_each_inner!((352)); _for_each_inner!((384));
+        _for_each_inner!((416)); _for_each_inner!((448)); _for_each_inner!((480));
+        _for_each_inner!((512)); _for_each_inner!((544)); _for_each_inner!((576));
+        _for_each_inner!((608)); _for_each_inner!((640)); _for_each_inner!((672));
+        _for_each_inner!((704)); _for_each_inner!((736)); _for_each_inner!((768));
+        _for_each_inner!((800)); _for_each_inner!((832)); _for_each_inner!((864));
+        _for_each_inner!((896)); _for_each_inner!((928)); _for_each_inner!((960));
+        _for_each_inner!((992)); _for_each_inner!((1024)); _for_each_inner!((1056));
+        _for_each_inner!((1088)); _for_each_inner!((1120)); _for_each_inner!((1152));
+        _for_each_inner!((1184)); _for_each_inner!((1216)); _for_each_inner!((1248));
+        _for_each_inner!((1280)); _for_each_inner!((1312)); _for_each_inner!((1344));
+        _for_each_inner!((1376)); _for_each_inner!((1408)); _for_each_inner!((1440));
+        _for_each_inner!((1472)); _for_each_inner!((1504)); _for_each_inner!((1536));
+        _for_each_inner!((1568)); _for_each_inner!((1600)); _for_each_inner!((1632));
+        _for_each_inner!((1664)); _for_each_inner!((1696)); _for_each_inner!((1728));
+        _for_each_inner!((1760)); _for_each_inner!((1792)); _for_each_inner!((1824));
+        _for_each_inner!((1856)); _for_each_inner!((1888)); _for_each_inner!((1920));
+        _for_each_inner!((1952)); _for_each_inner!((1984)); _for_each_inner!((2016));
+        _for_each_inner!((2048)); _for_each_inner!((all(32), (64), (96), (128), (160),
+        (192), (224), (256), (288), (320), (352), (384), (416), (448), (480), (512),
+        (544), (576), (608), (640), (672), (704), (736), (768), (800), (832), (864),
+        (896), (928), (960), (992), (1024), (1056), (1088), (1120), (1152), (1184),
+        (1216), (1248), (1280), (1312), (1344), (1376), (1408), (1440), (1472), (1504),
+        (1536), (1568), (1600), (1632), (1664), (1696), (1728), (1760), (1792), (1824),
+        (1856), (1888), (1920), (1952), (1984), (2016), (2048)));
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_sha_algorithm {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((Sha1, "SHA-1"(sizes : 64, 20, 8) (insecure_against :
+        "collision", "length extension"), 0)); _for_each_inner!((Sha224, "SHA-224"(sizes
+        : 64, 28, 8) (insecure_against : "length extension"), 1));
+        _for_each_inner!((Sha256, "SHA-256"(sizes : 64, 32, 8) (insecure_against :
+        "length extension"), 2)); _for_each_inner!((Sha384, "SHA-384"(sizes : 128, 48,
+        16) (insecure_against :), 3)); _for_each_inner!((Sha512, "SHA-512"(sizes : 128,
+        64, 16) (insecure_against : "length extension"), 4));
+        _for_each_inner!((Sha512_224, "SHA-512/224"(sizes : 128, 28, 16)
+        (insecure_against :), 5)); _for_each_inner!((Sha512_256, "SHA-512/256"(sizes :
+        128, 32, 16) (insecure_against :), 6)); _for_each_inner!((algos(Sha1,
+        "SHA-1"(sizes : 64, 20, 8) (insecure_against : "collision", "length extension"),
+        0), (Sha224, "SHA-224"(sizes : 64, 28, 8) (insecure_against :
+        "length extension"), 1), (Sha256, "SHA-256"(sizes : 64, 32, 8) (insecure_against
+        : "length extension"), 2), (Sha384, "SHA-384"(sizes : 128, 48, 16)
+        (insecure_against :), 3), (Sha512, "SHA-512"(sizes : 128, 64, 16)
+        (insecure_against : "length extension"), 4), (Sha512_224, "SHA-512/224"(sizes :
+        128, 28, 16) (insecure_against :), 5), (Sha512_256, "SHA-512/256"(sizes : 128,
+        32, 16) (insecure_against :), 6)));
     };
 }
 /// This macro can be used to generate code for each peripheral instance of the I2C master driver.
@@ -313,7 +568,8 @@ macro_rules! for_each_peripheral {
         _for_each_inner!((GPIO42 <= virtual())); _for_each_inner!((GPIO43 <= virtual()));
         _for_each_inner!((GPIO44 <= virtual())); _for_each_inner!((GPIO45 <= virtual()));
         _for_each_inner!((GPIO46 <= virtual())); _for_each_inner!((GPIO47 <= virtual()));
-        _for_each_inner!((GPIO48 <= virtual())); _for_each_inner!((AES <= AES()
+        _for_each_inner!((GPIO48 <= virtual())); _for_each_inner!((AES <= AES(AES : {
+        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
         (unstable))); _for_each_inner!((APB_CTRL <= APB_CTRL() (unstable)));
         _for_each_inner!((APB_SARADC <= APB_SARADC() (unstable)));
         _for_each_inner!((ASSIST_DEBUG <= ASSIST_DEBUG() (unstable)));
@@ -337,38 +593,40 @@ macro_rules! for_each_peripheral {
         MCPWM0() (unstable))); _for_each_inner!((MCPWM1 <= MCPWM1() (unstable)));
         _for_each_inner!((PCNT <= PCNT() (unstable))); _for_each_inner!((PERI_BACKUP <=
         PERI_BACKUP() (unstable))); _for_each_inner!((RMT <= RMT() (unstable)));
-        _for_each_inner!((RNG <= RNG() (unstable))); _for_each_inner!((RSA <= RSA()
+        _for_each_inner!((RNG <= RNG() (unstable))); _for_each_inner!((RSA <= RSA(RSA : {
+        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
         (unstable))); _for_each_inner!((RTC_CNTL <= RTC_CNTL() (unstable)));
         _for_each_inner!((RTC_I2C <= RTC_I2C() (unstable))); _for_each_inner!((RTC_IO <=
         RTC_IO() (unstable))); _for_each_inner!((SDHOST <= SDHOST() (unstable)));
         _for_each_inner!((SENS <= SENS() (unstable))); _for_each_inner!((SENSITIVE <=
-        SENSITIVE() (unstable))); _for_each_inner!((SHA <= SHA() (unstable)));
-        _for_each_inner!((SPI0 <= SPI0() (unstable))); _for_each_inner!((SPI1 <= SPI1()
-        (unstable))); _for_each_inner!((SPI2 <= SPI2(SPI2 : { bind_peri_interrupt,
-        enable_peri_interrupt, disable_peri_interrupt }))); _for_each_inner!((SPI3 <=
-        SPI3(SPI3 : { bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt
-        }))); _for_each_inner!((SYSTEM <= SYSTEM() (unstable)));
-        _for_each_inner!((SYSTIMER <= SYSTIMER() (unstable))); _for_each_inner!((TIMG0 <=
-        TIMG0() (unstable))); _for_each_inner!((TIMG1 <= TIMG1() (unstable)));
-        _for_each_inner!((TWAI0 <= TWAI0() (unstable))); _for_each_inner!((UART0 <=
-        UART0(UART0 : { bind_peri_interrupt, enable_peri_interrupt,
-        disable_peri_interrupt }))); _for_each_inner!((UART1 <= UART1(UART1 : {
+        SENSITIVE() (unstable))); _for_each_inner!((SHA <= SHA(SHA : {
+        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
+        (unstable))); _for_each_inner!((SPI0 <= SPI0() (unstable)));
+        _for_each_inner!((SPI1 <= SPI1() (unstable))); _for_each_inner!((SPI2 <=
+        SPI2(SPI2 : { bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt
+        }))); _for_each_inner!((SPI3 <= SPI3(SPI3 : { bind_peri_interrupt,
+        enable_peri_interrupt, disable_peri_interrupt }))); _for_each_inner!((SYSTEM <=
+        SYSTEM() (unstable))); _for_each_inner!((SYSTIMER <= SYSTIMER() (unstable)));
+        _for_each_inner!((TIMG0 <= TIMG0() (unstable))); _for_each_inner!((TIMG1 <=
+        TIMG1() (unstable))); _for_each_inner!((TWAI0 <= TWAI0() (unstable)));
+        _for_each_inner!((UART0 <= UART0(UART0 : { bind_peri_interrupt,
+        enable_peri_interrupt, disable_peri_interrupt }))); _for_each_inner!((UART1 <=
+        UART1(UART1 : { bind_peri_interrupt, enable_peri_interrupt,
+        disable_peri_interrupt }))); _for_each_inner!((UART2 <= UART2(UART2 : {
         bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })));
-        _for_each_inner!((UART2 <= UART2(UART2 : { bind_peri_interrupt,
-        enable_peri_interrupt, disable_peri_interrupt }))); _for_each_inner!((UHCI0 <=
-        UHCI0() (unstable))); _for_each_inner!((UHCI1 <= UHCI1() (unstable)));
-        _for_each_inner!((USB0 <= USB0() (unstable))); _for_each_inner!((USB_DEVICE <=
-        USB_DEVICE(USB_DEVICE : { bind_peri_interrupt, enable_peri_interrupt,
-        disable_peri_interrupt }) (unstable))); _for_each_inner!((USB_WRAP <= USB_WRAP()
-        (unstable))); _for_each_inner!((WCL <= WCL() (unstable)));
-        _for_each_inner!((XTS_AES <= XTS_AES() (unstable))); _for_each_inner!((DMA_CH0 <=
-        virtual() (unstable))); _for_each_inner!((DMA_CH1 <= virtual() (unstable)));
-        _for_each_inner!((DMA_CH2 <= virtual() (unstable))); _for_each_inner!((DMA_CH3 <=
-        virtual() (unstable))); _for_each_inner!((DMA_CH4 <= virtual() (unstable)));
-        _for_each_inner!((ADC1 <= virtual() (unstable))); _for_each_inner!((ADC2 <=
-        virtual() (unstable))); _for_each_inner!((BT <= virtual() (unstable)));
-        _for_each_inner!((CPU_CTRL <= virtual() (unstable))); _for_each_inner!((PSRAM <=
-        virtual() (unstable))); _for_each_inner!((SW_INTERRUPT <= virtual() (unstable)));
+        _for_each_inner!((UHCI0 <= UHCI0() (unstable))); _for_each_inner!((USB0 <= USB0()
+        (unstable))); _for_each_inner!((USB_DEVICE <= USB_DEVICE(USB_DEVICE : {
+        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
+        (unstable))); _for_each_inner!((USB_WRAP <= USB_WRAP() (unstable)));
+        _for_each_inner!((WCL <= WCL() (unstable))); _for_each_inner!((XTS_AES <=
+        XTS_AES() (unstable))); _for_each_inner!((DMA_CH0 <= virtual() (unstable)));
+        _for_each_inner!((DMA_CH1 <= virtual() (unstable))); _for_each_inner!((DMA_CH2 <=
+        virtual() (unstable))); _for_each_inner!((DMA_CH3 <= virtual() (unstable)));
+        _for_each_inner!((DMA_CH4 <= virtual() (unstable))); _for_each_inner!((ADC1 <=
+        virtual() (unstable))); _for_each_inner!((ADC2 <= virtual() (unstable)));
+        _for_each_inner!((BT <= virtual() (unstable))); _for_each_inner!((CPU_CTRL <=
+        virtual() (unstable))); _for_each_inner!((PSRAM <= virtual() (unstable)));
+        _for_each_inner!((SW_INTERRUPT <= virtual() (unstable)));
         _for_each_inner!((ULP_RISCV_CORE <= virtual() (unstable)));
         _for_each_inner!((WIFI <= virtual() (unstable))); _for_each_inner!((all(GPIO0 <=
         virtual()), (GPIO1 <= virtual()), (GPIO2 <= virtual()), (GPIO3 <= virtual()),
@@ -383,7 +641,8 @@ macro_rules! for_each_peripheral {
         (GPIO36 <= virtual()), (GPIO37 <= virtual()), (GPIO38 <= virtual()), (GPIO39 <=
         virtual()), (GPIO40 <= virtual()), (GPIO41 <= virtual()), (GPIO42 <= virtual()),
         (GPIO43 <= virtual()), (GPIO44 <= virtual()), (GPIO45 <= virtual()), (GPIO46 <=
-        virtual()), (GPIO47 <= virtual()), (GPIO48 <= virtual()), (AES <= AES()
+        virtual()), (GPIO47 <= virtual()), (GPIO48 <= virtual()), (AES <= AES(AES : {
+        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
         (unstable)), (APB_CTRL <= APB_CTRL() (unstable)), (APB_SARADC <= APB_SARADC()
         (unstable)), (ASSIST_DEBUG <= ASSIST_DEBUG() (unstable)), (DMA <= DMA()
         (unstable)), (DS <= DS() (unstable)), (EFUSE <= EFUSE() (unstable)), (EXTMEM <=
@@ -399,22 +658,24 @@ macro_rules! for_each_peripheral {
         LCD_CAM() (unstable)), (LEDC <= LEDC() (unstable)), (LPWR <= RTC_CNTL()
         (unstable)), (MCPWM0 <= MCPWM0() (unstable)), (MCPWM1 <= MCPWM1() (unstable)),
         (PCNT <= PCNT() (unstable)), (PERI_BACKUP <= PERI_BACKUP() (unstable)), (RMT <=
-        RMT() (unstable)), (RNG <= RNG() (unstable)), (RSA <= RSA() (unstable)),
-        (RTC_CNTL <= RTC_CNTL() (unstable)), (RTC_I2C <= RTC_I2C() (unstable)), (RTC_IO
-        <= RTC_IO() (unstable)), (SDHOST <= SDHOST() (unstable)), (SENS <= SENS()
-        (unstable)), (SENSITIVE <= SENSITIVE() (unstable)), (SHA <= SHA() (unstable)),
-        (SPI0 <= SPI0() (unstable)), (SPI1 <= SPI1() (unstable)), (SPI2 <= SPI2(SPI2 : {
-        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })), (SPI3 <=
-        SPI3(SPI3 : { bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt
-        })), (SYSTEM <= SYSTEM() (unstable)), (SYSTIMER <= SYSTIMER() (unstable)), (TIMG0
-        <= TIMG0() (unstable)), (TIMG1 <= TIMG1() (unstable)), (TWAI0 <= TWAI0()
-        (unstable)), (UART0 <= UART0(UART0 : { bind_peri_interrupt,
-        enable_peri_interrupt, disable_peri_interrupt })), (UART1 <= UART1(UART1 : {
-        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })), (UART2 <=
-        UART2(UART2 : { bind_peri_interrupt, enable_peri_interrupt,
-        disable_peri_interrupt })), (UHCI0 <= UHCI0() (unstable)), (UHCI1 <= UHCI1()
-        (unstable)), (USB0 <= USB0() (unstable)), (USB_DEVICE <= USB_DEVICE(USB_DEVICE :
-        { bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
+        RMT() (unstable)), (RNG <= RNG() (unstable)), (RSA <= RSA(RSA : {
+        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
+        (unstable)), (RTC_CNTL <= RTC_CNTL() (unstable)), (RTC_I2C <= RTC_I2C()
+        (unstable)), (RTC_IO <= RTC_IO() (unstable)), (SDHOST <= SDHOST() (unstable)),
+        (SENS <= SENS() (unstable)), (SENSITIVE <= SENSITIVE() (unstable)), (SHA <=
+        SHA(SHA : { bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
+        (unstable)), (SPI0 <= SPI0() (unstable)), (SPI1 <= SPI1() (unstable)), (SPI2 <=
+        SPI2(SPI2 : { bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt
+        })), (SPI3 <= SPI3(SPI3 : { bind_peri_interrupt, enable_peri_interrupt,
+        disable_peri_interrupt })), (SYSTEM <= SYSTEM() (unstable)), (SYSTIMER <=
+        SYSTIMER() (unstable)), (TIMG0 <= TIMG0() (unstable)), (TIMG1 <= TIMG1()
+        (unstable)), (TWAI0 <= TWAI0() (unstable)), (UART0 <= UART0(UART0 : {
+        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })), (UART1 <=
+        UART1(UART1 : { bind_peri_interrupt, enable_peri_interrupt,
+        disable_peri_interrupt })), (UART2 <= UART2(UART2 : { bind_peri_interrupt,
+        enable_peri_interrupt, disable_peri_interrupt })), (UHCI0 <= UHCI0() (unstable)),
+        (USB0 <= USB0() (unstable)), (USB_DEVICE <= USB_DEVICE(USB_DEVICE : {
+        bind_peri_interrupt, enable_peri_interrupt, disable_peri_interrupt })
         (unstable)), (USB_WRAP <= USB_WRAP() (unstable)), (WCL <= WCL() (unstable)),
         (XTS_AES <= XTS_AES() (unstable)), (DMA_CH0 <= virtual() (unstable)), (DMA_CH1 <=
         virtual() (unstable)), (DMA_CH2 <= virtual() (unstable)), (DMA_CH3 <= virtual()

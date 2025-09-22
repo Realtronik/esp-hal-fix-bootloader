@@ -194,6 +194,11 @@
 #![deny(missing_docs, rust_2018_idioms, rustdoc::all)]
 #![allow(rustdoc::private_doc_tests)] // compile tests are done via rustdoc
 #![cfg_attr(docsrs, feature(doc_cfg, custom_inner_attributes, proc_macro_hygiene))]
+// Don't trip up on broken/private links when running semver-checks
+#![cfg_attr(
+    semver_checks,
+    allow(rustdoc::private_intra_doc_links, rustdoc::broken_intra_doc_links)
+)]
 #![no_std]
 
 // MUST be the first module
@@ -213,6 +218,7 @@ metadata!("build_info", CHIP_NAME, chip!());
 #[cfg_attr(docsrs, doc(cfg(all(feature = "unstable", feature = "rt"))))]
 #[cfg_attr(not(feature = "unstable"), doc(hidden))]
 pub use esp_riscv_rt::{self, riscv};
+use esp_sync::RawMutex;
 pub(crate) use peripherals::pac;
 #[cfg(xtensa)]
 #[cfg(all(xtensa, feature = "rt"))]
@@ -220,17 +226,10 @@ pub(crate) use peripherals::pac;
 #[cfg_attr(not(feature = "unstable"), doc(hidden))]
 pub use xtensa_lx_rt::{self, xtensa_lx};
 
-#[cfg(soc_has_efuse)]
-#[instability::unstable]
-#[cfg_attr(not(feature = "unstable"), allow(unused))]
-pub use self::soc::efuse;
 #[cfg(lp_core)]
 #[instability::unstable]
 #[cfg_attr(not(feature = "unstable"), allow(unused))]
 pub use self::soc::lp_core;
-#[instability::unstable]
-#[cfg(feature = "psram")]
-pub use self::soc::psram;
 #[cfg(ulp_riscv_core)]
 #[instability::unstable]
 #[cfg_attr(not(feature = "unstable"), allow(unused))]
@@ -264,6 +263,9 @@ pub use procmacros::load_lp_code;
 #[instability::unstable]
 #[cfg_attr(not(feature = "unstable"), allow(unused))]
 pub use procmacros::{handler, ram};
+
+#[cfg(all(feature = "rt", feature = "exception-handler"))]
+mod exception_handler;
 
 // can't use instability on inline module definitions, see https://github.com/rust-lang/rust/issues/54727
 #[doc(hidden)]
@@ -329,6 +331,10 @@ unstable_module! {
     pub mod etm;
     #[cfg(soc_has_usb0)]
     pub mod otg_fs;
+    #[cfg(psram)] // DMA needs some things from here
+    pub mod psram;
+    pub mod efuse;
+    pub mod work_queue;
 }
 
 unstable_driver! {
@@ -527,7 +533,6 @@ pub(crate) mod private {
     }
 }
 
-#[cfg(feature = "unstable")]
 #[doc(hidden)]
 pub use private::Internal;
 
@@ -582,6 +587,9 @@ use crate::config::{WatchdogConfig, WatchdogStatus};
 #[cfg(feature = "rt")]
 use crate::{clock::Clocks, peripherals::Peripherals};
 
+/// A spinlock for seldom called stuff. Users assume that lock contention is not an issue.
+pub(crate) static ESP_HAL_LOCK: RawMutex = RawMutex::new();
+
 /// System configuration.
 ///
 /// This `struct` is marked with `#[non_exhaustive]` and can't be instantiated
@@ -633,71 +641,55 @@ pub fn init(config: Config) -> Peripherals {
 
     let mut peripherals = Peripherals::take();
 
+    Clocks::init(config.cpu_clock);
+
+    crate::rtc_cntl::rtc::configure_clock();
+
     // RTC domain must be enabled before we try to disable
     let mut rtc = crate::rtc_cntl::Rtc::new(peripherals.LPWR.reborrow());
 
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c3, esp32c6, esp32c2))]
+    crate::rtc_cntl::sleep::RtcSleepConfig::base_settings(&rtc);
+
     // Handle watchdog configuration with defaults
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "unstable")]
-        {
-            #[cfg(not(any(esp32, esp32s2)))]
-            if config.watchdog.swd() {
-                rtc.swd.enable();
-            } else {
-                rtc.swd.disable();
-            }
+    #[cfg(not(any(esp32, esp32s2)))]
+    rtc.swd.disable();
 
-            match config.watchdog.rwdt() {
-                WatchdogStatus::Enabled(duration) => {
-                    rtc.rwdt.enable();
-                    rtc.rwdt
-                        .set_timeout(crate::rtc_cntl::RwdtStage::Stage0, duration);
-                }
-                WatchdogStatus::Disabled => {
-                    rtc.rwdt.disable();
-                }
-            }
+    rtc.rwdt.disable();
 
-            #[cfg(timergroup_timg0)]
-            match config.watchdog.timg0() {
-                WatchdogStatus::Enabled(duration) => {
-                    let mut timg0_wd = crate::timer::timg::Wdt::<crate::peripherals::TIMG0<'static>>::new();
-                    timg0_wd.enable();
-                    timg0_wd.set_timeout(crate::timer::timg::MwdtStage::Stage0, duration);
-                }
-                WatchdogStatus::Disabled => {
-                    crate::timer::timg::Wdt::<crate::peripherals::TIMG0<'static>>::new().disable();
-                }
-            }
+    #[cfg(timergroup_timg0)]
+    crate::timer::timg::Wdt::<crate::peripherals::TIMG0<'static>>::new().disable();
 
-            #[cfg(timergroup_timg1)]
-            match config.watchdog.timg1() {
-                WatchdogStatus::Enabled(duration) => {
-                    let mut timg1_wd = crate::timer::timg::Wdt::<crate::peripherals::TIMG1<'static>>::new();
-                    timg1_wd.enable();
-                    timg1_wd.set_timeout(crate::timer::timg::MwdtStage::Stage0, duration);
-                }
-                WatchdogStatus::Disabled => {
-                    crate::timer::timg::Wdt::<crate::peripherals::TIMG1<'static>>::new().disable();
-                }
-            }
+    #[cfg(timergroup_timg1)]
+    crate::timer::timg::Wdt::<crate::peripherals::TIMG1<'static>>::new().disable();
+
+    #[cfg(feature = "unstable")]
+    {
+        #[cfg(not(any(esp32, esp32s2)))]
+        if config.watchdog.swd() {
+            rtc.swd.enable();
         }
-        else
-        {
-            #[cfg(not(any(esp32, esp32s2)))]
-            rtc.swd.disable();
 
-            rtc.rwdt.disable();
+        if let WatchdogStatus::Enabled(duration) = config.watchdog.rwdt() {
+            rtc.rwdt
+                .set_timeout(crate::rtc_cntl::RwdtStage::Stage0, duration);
+            rtc.rwdt.enable();
+        }
 
-            #[cfg(timergroup_timg0)]
-            crate::timer::timg::Wdt::<crate::peripherals::TIMG0<'static>>::new().disable();
+        #[cfg(timergroup_timg0)]
+        if let WatchdogStatus::Enabled(duration) = config.watchdog.timg0() {
+            let mut timg0_wd = crate::timer::timg::Wdt::<crate::peripherals::TIMG0<'static>>::new();
+            timg0_wd.set_timeout(crate::timer::timg::MwdtStage::Stage0, duration);
+            timg0_wd.enable();
+        }
 
-            #[cfg(timergroup_timg1)]
-            crate::timer::timg::Wdt::<crate::peripherals::TIMG1<'static>>::new().disable();
+        #[cfg(timergroup_timg1)]
+        if let WatchdogStatus::Enabled(duration) = config.watchdog.timg1() {
+            let mut timg1_wd = crate::timer::timg::Wdt::<crate::peripherals::TIMG1<'static>>::new();
+            timg1_wd.set_timeout(crate::timer::timg::MwdtStage::Stage0, duration);
+            timg1_wd.enable();
         }
     }
-
-    Clocks::init(config.cpu_clock);
 
     #[cfg(esp32)]
     crate::time::time_init();

@@ -74,6 +74,7 @@ mod placeholder;
 
 use core::fmt::Display;
 
+use esp_sync::RawMutex;
 pub use placeholder::NoPin;
 use portable_atomic::AtomicU32;
 use strum::EnumCount;
@@ -83,7 +84,6 @@ use crate::{
     interrupt::{InterruptHandler, Priority},
     peripherals::{GPIO, IO_MUX, Interrupt},
     private::{self, Sealed},
-    sync::RawMutex,
 };
 
 define_io_mux_signals!();
@@ -119,7 +119,7 @@ impl PinGuard {
         }
     }
 
-    #[cfg(any(esp32, esp32s2))]
+    #[allow(unused)]
     pub(crate) fn pin_number(&self) -> Option<u8> {
         if self.pin == u8::MAX {
             None
@@ -205,21 +205,37 @@ impl core::ops::Not for Level {
     }
 }
 
-impl From<bool> for Level {
-    fn from(val: bool) -> Self {
+impl Level {
+    /// Create a [`Level`] from [`bool`].
+    ///
+    /// Like `<Level as From<bool>>::from(val)`, but `const`.
+    pub(crate) const fn const_from(val: bool) -> Self {
         match val {
             true => Self::High,
             false => Self::Low,
         }
     }
+
+    /// Convert a [`Level`] to [`bool`].
+    ///
+    /// Like `<bool as From<Level>>::from(self)`, but `const`.
+    pub(crate) const fn const_into(self) -> bool {
+        match self {
+            Level::Low => false,
+            Level::High => true,
+        }
+    }
+}
+
+impl From<bool> for Level {
+    fn from(val: bool) -> Self {
+        Self::const_from(val)
+    }
 }
 
 impl From<Level> for bool {
     fn from(level: Level) -> bool {
-        match level {
-            Level::Low => false,
-            Level::High => true,
-        }
+        level.const_into()
     }
 }
 
@@ -341,6 +357,9 @@ pub enum RtcFunction {
     Rtc     = 0,
     /// Digital mode.
     Digital = 1,
+    /// RTC_I2C mode.
+    #[cfg(soc_has_rtc_i2c)]
+    I2c     = 3,
 }
 
 /// Trait implemented by RTC pins
@@ -659,8 +678,13 @@ impl<'d> Io<'d> {
             crate::interrupt::disable(core, Interrupt::GPIO);
         }
         self.set_interrupt_priority(handler.priority());
-        unsafe { crate::interrupt::bind_interrupt(Interrupt::GPIO, user_gpio_interrupt_handler) };
-        USER_INTERRUPT_HANDLER.store(handler.handler());
+        unsafe {
+            crate::interrupt::bind_interrupt(
+                Interrupt::GPIO,
+                crate::interrupt::IsrCallback::new(user_gpio_interrupt_handler),
+            )
+        };
+        USER_INTERRUPT_HANDLER.store(handler.handler().aligned_ptr());
     }
 }
 
@@ -675,7 +699,7 @@ impl crate::interrupt::InterruptConfigurable for Io<'_> {
 
 for_each_analog_function! {
     (($_ch:ident, ADCn_CHm, $_n:literal, $_m:literal), $gpio:ident) => {
-        #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
+        #[instability::unstable]
         impl $crate::gpio::AnalogPin for crate::peripherals::$gpio<'_> {
             #[cfg(riscv)]
             fn set_analog(&self, _: private::Internal) {

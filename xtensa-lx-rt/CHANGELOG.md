@@ -9,14 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A new feature `defmt` which implements `defmt::Format` on `Context` (#3887)
 
 ### Changed
 
+- Removed the `r0` dependency (#4117)
 
 ### Fixed
 
 
 ### Removed
+
 
 
 ## [v0.20.0] - 2025-07-16

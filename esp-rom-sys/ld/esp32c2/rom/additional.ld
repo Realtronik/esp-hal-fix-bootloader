@@ -13,3 +13,13 @@ PROVIDE ( strchr = 0x40000514 );
 PROVIDE ( strlcpy = 0x40000524 );
 PROVIDE ( strstr = 0x400004ac );
 PROVIDE ( strcasecmp = 0x40000504 );
+
+EXTERN(__mktime);
+EXTERN(__strnlen);
+EXTERN(__atoi);
+
+PROVIDE ( strnlen = __strnlen );
+PROVIDE ( atoi = __atoi );
+PROVIDE ( mktime = __mktime );
+
+PROVIDE( abs = 0x40000558 );

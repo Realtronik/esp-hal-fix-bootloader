@@ -11,6 +11,30 @@ repository    = "https://github.com/esp-rs/esp-hal"
 license       = "MIT OR Apache-2.0"
 exclude = [ "api-baseline", "MIGRATING-*", "CHANGELOG.md" ]
 
+[package.metadata.espressif]
+semver_checked = true
+doc-config = { features = ["unstable", "rt"], append = [
+    { if = 'chip_has("psram")', features = ["psram"] },
+    { if = 'chip_has("soc_has_usb0")', features = ["__usb_otg"] },
+    { if = 'chip_has("bt")', features = ["__bluetooth"] },
+] }
+check-configs = [
+    { features = [] },
+    { features = ["rt"] },
+    { features = ["unstable", "rt"] },
+    { features = ["unstable", "rt", "psram"], if = 'chip_has("psram")' },
+    { features = ["unstable", "rt", "__usb_otg"], if = 'chip_has("soc_has_usb0")' },
+    { features = ["unstable", "rt", "__bluetooth"], if = 'chip_has("bt")' },
+]
+# Prefer fewer, but more complex clippy rules. A clippy run should cover as much code as possible.
+clippy-configs = [
+    { features = ["unstable", "rt"], append = [
+        { if = 'chip_has("psram")', features = ["psram"] },
+        { if = 'chip_has("soc_has_usb0")', features = ["__usb_otg"] },
+        { if = 'chip_has("bt")', features = ["__bluetooth"] },
+    ] },
+]
+
 [package.metadata.docs.rs]
 default-target = "riscv32imac-unknown-none-elf"
 features       = ["esp32c6", "unstable"]
@@ -37,21 +61,22 @@ esp-rom-sys              = { version = "0.1.2", path = "../esp-rom-sys" }
 bitfield                 = "0.19.0"
 delegate                 = "0.13.3"
 document-features        = "0.2.11"
-embassy-futures          = "0.1.1"
-embassy-sync             = "0.6.2"
+embassy-futures          = "0.1"
+embassy-sync             = "0.7"
 fugit                    = "0.3.7"
-instability              = "0.3.7"
+instability              = "0.3.9"
 strum                    = { version = "0.27.1", default-features = false, features = ["derive"] }
 
 esp-config               = { version = "0.5.0", path = "../esp-config" }
 esp-metadata-generated   = { version = "0.1.0", path = "../esp-metadata-generated" }
+esp-sync                 = { version = "0.0.0", path = "../esp-sync" }
 procmacros               = { version = "0.19.0", package = "esp-hal-procmacros", path = "../esp-hal-procmacros" }
 
 # Dependencies that are optional because they are used by unstable drivers.
 # They are needed when using the `unstable` feature.
 digest                   = { version = "0.10.7", default-features = false, optional = true }
-embassy-usb-driver       = { version = "0.1.0", optional = true }
-embassy-usb-synopsys-otg = { version = "0.2.0", optional = true }
+embassy-usb-driver       = { version = "0.2.0", optional = true }
+embassy-usb-synopsys-otg = { version = "0.3.0", optional = true }
 embedded-can             = { version = "0.4.1", optional = true }
 esp-synopsys-usb-otg     = { version = "0.4.2", optional = true }
 nb                       = { version = "1.1.0", optional = true }
@@ -60,10 +85,14 @@ nb                       = { version = "1.1.0", optional = true }
 defmt                    = { version = "1.0.1", optional = true }
 log-04                   = { package = "log", version = "0.4.27", optional = true }
 
+# ESP32-only fallback SHA algorithms
+sha1                     = { version = "0.10", default-features = false, optional = true }
+sha2                     = { version = "0.10", default-features = false, optional = true }
+
 # Optional dependencies that enable ecosystem support.
 # We could support individually enabling them, but there is no big downside to just
 # enabling them all via the `unstable` feature.
-embassy-embedded-hal     = { version = "0.3.0", optional = true }
+embassy-embedded-hal     = { version = "0.5.0", optional = true }
 embedded-io              = { version = "0.6.1", optional = true }
 embedded-io-async        = { version = "0.6.1", optional = true }
 rand_core-06             = { package = "rand_core", version = "0.6.4", optional = true }
@@ -73,16 +102,16 @@ ufmt-write               = { version = "0.1.0", optional = true }
 # IMPORTANT:
 # Each supported device MUST have its PAC included below along with a
 # corresponding feature.
-esp32   = { version = "0.38.0", features = ["critical-section", "rt"], optional = true }
-esp32c2 = { version = "0.27.0", features = ["critical-section", "rt"], optional = true }
-esp32c3 = { version = "0.30.0", features = ["critical-section", "rt"], optional = true }
-esp32c6 = { version = "0.21.0", features = ["critical-section", "rt"], optional = true }
-esp32h2 = { version = "0.17.0", features = ["critical-section", "rt"], optional = true }
-esp32s2 = { version = "0.29.0", features = ["critical-section", "rt"], optional = true }
-esp32s3 = { version = "0.33.0", features = ["critical-section", "rt"], optional = true }
+esp32   = { version = "0.38.0", features = ["critical-section", "rt"], optional = true, git = "https://github.com/esp-rs/esp-pacs", rev = "aaacac954c30c19debd1c86fd6bbecf3ae554581" }
+esp32c2 = { version = "0.27.0", features = ["critical-section", "rt"], optional = true, git = "https://github.com/esp-rs/esp-pacs", rev = "aaacac954c30c19debd1c86fd6bbecf3ae554581" }
+esp32c3 = { version = "0.30.0", features = ["critical-section", "rt"], optional = true, git = "https://github.com/esp-rs/esp-pacs", rev = "aaacac954c30c19debd1c86fd6bbecf3ae554581" }
+esp32c6 = { version = "0.21.0", features = ["critical-section", "rt"], optional = true, git = "https://github.com/esp-rs/esp-pacs", rev = "aaacac954c30c19debd1c86fd6bbecf3ae554581" }
+esp32h2 = { version = "0.17.0", features = ["critical-section", "rt"], optional = true, git = "https://github.com/esp-rs/esp-pacs", rev = "aaacac954c30c19debd1c86fd6bbecf3ae554581" }
+esp32s2 = { version = "0.29.0", features = ["critical-section", "rt"], optional = true, git = "https://github.com/esp-rs/esp-pacs", rev = "aaacac954c30c19debd1c86fd6bbecf3ae554581" }
+esp32s3 = { version = "0.33.0", features = ["critical-section", "rt"], optional = true, git = "https://github.com/esp-rs/esp-pacs", rev = "aaacac954c30c19debd1c86fd6bbecf3ae554581" }
 
 [target.'cfg(target_arch = "riscv32")'.dependencies]
-riscv            = { version = "0.12.1" }
+riscv            = { version = "0.15.0" }
 esp-riscv-rt     = { version = "0.12.0", path = "../esp-riscv-rt", optional = true }
 
 [target.'cfg(target_arch = "xtensa")'.dependencies]
@@ -96,10 +125,11 @@ esp-config   = { version = "0.5.0", path = "../esp-config", features = ["build"]
 serde        = { version = "1.0.219", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
+crypto-bigint = { version = "0.5.5", default-features = false }
 jiff = { version = "0.2.10", default-features = false, features = ["static"] }
 
 [features]
-default = ["rt"]
+default = ["rt", "exception-handler"]
 
 # These features are considered private and unstable. They are not covered by
 # semver guarantees and may change or be removed without notice.
@@ -107,7 +137,7 @@ __bluetooth = []
 # Reserves FROM_CPU_INTR3 for multi-core MCUs.
 __esp_hal_embassy = []
 # Reserves FROM_CPU_INTR2 for RISC-V MCUs.
-__esp_wifi_builtin_scheduler = []
+__esp_radio_builtin_scheduler = []
 __usb_otg = [
     "dep:embassy-usb-driver",
     "dep:embassy-usb-synopsys-otg",
@@ -122,21 +152,28 @@ esp32   = [
     "dep:esp32",
     "procmacros/rtc-slow",
     "esp-rom-sys/esp32",
+    "esp-sync/esp32",
     "esp-metadata-generated/esp32",
+    "dep:sha1",
+    "dep:sha2"
 ]
 # Target the ESP32-C2.
 esp32c2 = [
     "dep:esp32c2",
+    "esp-riscv-rt/no-mie-mip",
     "portable-atomic/unsafe-assume-single-core",
     "esp-rom-sys/esp32c2",
+    "esp-sync/esp32c2",
     "esp-metadata-generated/esp32c2",
 ]
 # Target the ESP32-C3.
 esp32c3 = [
     "dep:esp32c3",
+    "esp-riscv-rt/no-mie-mip",
     "esp-riscv-rt/rtc-ram",
     "portable-atomic/unsafe-assume-single-core",
     "esp-rom-sys/esp32c3",
+    "esp-sync/esp32c3",
     "esp-metadata-generated/esp32c3",
 ]
 # Target the ESP32-C6.
@@ -145,6 +182,7 @@ esp32c6 = [
     "esp-riscv-rt/rtc-ram",
     "procmacros/has-lp-core",
     "esp-rom-sys/esp32c6",
+    "esp-sync/esp32c6",
     "esp-metadata-generated/esp32c6",
 ]
 # Target the ESP32-H2.
@@ -152,6 +190,7 @@ esp32h2 = [
     "dep:esp32h2",
     "esp-riscv-rt/rtc-ram",
     "esp-rom-sys/esp32h2",
+    "esp-sync/esp32h2",
     "esp-metadata-generated/esp32h2",
 ]
 # Target the ESP32-S2.
@@ -162,6 +201,7 @@ esp32s2 = [
     "procmacros/rtc-slow",
     "__usb_otg",
     "esp-rom-sys/esp32s2",
+    "esp-sync/esp32s2",
     "esp-metadata-generated/esp32s2",
 ]
 # Target the ESP32-S3.
@@ -171,6 +211,7 @@ esp32s3 = [
     "procmacros/rtc-slow",
     "__usb_otg",
     "esp-rom-sys/esp32s3",
+    "esp-sync/esp32s3",
     "esp-metadata-generated/esp32s3",
 ]
 
@@ -189,6 +230,10 @@ rt = [
     "esp32s3?/rt",
 ]
 
+## Enable a simple exception handler turning exceptions into panics.
+##
+## If you are depending on `esp-hal` as a library, you should *not* enable the `exception-handler` feature under any circumstance.
+exception-handler = []
 
 #! ### Logging Feature Flags
 ## Enable logging output using version 0.4 of the `log` crate.
@@ -211,6 +256,9 @@ defmt = [
     "esp32s2?/defmt",
     "esp32s3?/defmt",
     "fugit/defmt",
+    "esp-riscv-rt?/defmt",
+    "xtensa-lx-rt?/defmt",
+    "esp-sync/defmt"
 ]
 
 #! ### PSRAM Feature Flags

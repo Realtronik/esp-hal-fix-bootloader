@@ -10,6 +10,17 @@ categories = ["embedded", "hardware-support", "no-std"]
 repository = "https://github.com/esp-rs/esp-hal"
 license = "MIT OR Apache-2.0"
 
+[package.metadata.espressif]
+doc-config = { features = ["defmt", "validation"] }
+check-configs = [
+    { features = [] },
+    { features = ["log-04"] },
+    { features = ["defmt", "validation"] },
+]
+clippy-configs = [
+    { features = ["defmt", "validation"] },
+]
+
 [package.metadata.docs.rs]
 default-target = "riscv32imac-unknown-none-elf"
 
@@ -52,19 +63,21 @@ std = ["dep:crc", "dep:md-5"]
 #! ### Chip selection
 #! One of the following features must be enabled to select the target chip:
 
-# The following trailing spaces ("## ") are important to display the feature names.
-
-## 
+##
 esp32c2   = ["esp-rom-sys/esp32c2"]
-## 
+##
 esp32c3   = ["esp-rom-sys/esp32c3"]
-## 
+##
 esp32c6   = ["esp-rom-sys/esp32c6"]
-## 
+##
 esp32h2   = ["esp-rom-sys/esp32h2"]
-## 
+##
 esp32     = ["esp-rom-sys/esp32"]
-## 
+##
 esp32s2   = ["esp-rom-sys/esp32s2"]
-## 
+##
 esp32s3   = ["esp-rom-sys/esp32s3"]
+
+# "md-5" is hidden behind `std` feature and `cargo machete` incorrectly marks it as unused.
+[package.metadata.cargo-machete]
+ignored = ["md-5"]

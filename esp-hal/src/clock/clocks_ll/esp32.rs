@@ -5,7 +5,7 @@ use crate::{
     soc::regi2c,
 };
 
-const REF_CLK_FREQ: u32 = 1000000;
+const REF_CLK_FREQ: u32 = property!("soc.ref_tick_hz");
 
 const MHZ: u32 = 1000000;
 const UINT16_MAX: u32 = 0xffff;
@@ -63,15 +63,6 @@ pub(crate) fn esp32_rtc_bbpll_configure(xtal_freq: XtalClock, pll_freq: PllClock
                 dcur = 0;
                 bw = 1;
             }
-
-            XtalClock::Other(_) => {
-                div_ref = 12;
-                div7_0 = 224;
-                div10_8 = 4;
-                lref = 0;
-                dcur = 0;
-                bw = 0;
-            }
         }
 
         regi2c::I2C_BBPLL_ENDIV5.write_reg(BBPLL_ENDIV5_VAL_320M);
@@ -100,15 +91,6 @@ pub(crate) fn esp32_rtc_bbpll_configure(xtal_freq: XtalClock, pll_freq: PllClock
                 lref = 1;
                 dcur = 0;
                 bw = 1;
-            }
-
-            XtalClock::Other(_) => {
-                div_ref = 12;
-                div7_0 = 224;
-                div10_8 = 4;
-                lref = 0;
-                dcur = 0;
-                bw = 0;
             }
         }
 
@@ -162,7 +144,7 @@ pub(crate) fn esp32_rtc_update_to_xtal(freq: XtalClock, _div: u32) {
         .modify(|_, w| w.soc_clk_sel().xtal());
     LPWR::regs()
         .store5()
-        .modify(|_, w| unsafe { w.scratch5().bits(value) });
+        .modify(|_, w| unsafe { w.data().bits(value) });
 
     // lower the voltage
     LPWR::regs()
@@ -199,7 +181,7 @@ pub(crate) fn set_cpu_freq(cpu_freq_mhz: crate::clock::CpuClock) {
     LPWR::regs().clk_conf().modify(|_, w| w.soc_clk_sel().pll());
     LPWR::regs()
         .store5()
-        .modify(|_, w| unsafe { w.scratch5().bits(value) });
+        .modify(|_, w| unsafe { w.data().bits(value) });
 
     esp32_update_cpu_freq(cpu_freq_mhz.mhz());
 }

@@ -12,7 +12,7 @@ const I2C_LL_INTR_MASK: u32 = (1 << LP_I2C_TRANS_COMPLETE_INT_ST_S)
     | (1 << LP_I2C_END_DETECT_INT_ST_S)
     | (1 << LP_I2C_NACK_INT_ST_S);
 
-const LP_I2C_FIFO_LEN: u32 = 16;
+const LP_I2C_FIFO_LEN: u32 = property!("lp_i2c_master.fifo_size");
 
 #[doc(hidden)]
 pub unsafe fn conjure() -> LpI2c {
@@ -219,7 +219,7 @@ impl LpI2c {
             },
         )?;
 
-        self.enable_interrupts(I2C_LL_INTR_MASK);
+        self.enable_listen(I2C_LL_INTR_MASK);
 
         let mut data_idx = 0;
         let mut remaining_bytes = bytes.len() as u32;
@@ -298,7 +298,7 @@ impl LpI2c {
             },
         )?;
 
-        self.enable_interrupts(
+        self.enable_listen(
             (1 << LP_I2C_TRANS_COMPLETE_INT_ST_S) | (1 << LP_I2C_END_DETECT_INT_ST_S),
         );
 
@@ -442,7 +442,7 @@ impl LpI2c {
         Ok(())
     }
 
-    fn enable_interrupts(&self, mask: u32) {
+    fn enable_listen(&self, mask: u32) {
         self.i2c.int_ena().write(|w| unsafe { w.bits(mask) });
     }
 

@@ -6,6 +6,7 @@ use crate::{
     gpio::RtcFunction,
     rtc_cntl::{
         Rtc,
+        RtcCalSel,
         RtcClock,
         rtc::{
             HpAnalog,
@@ -13,7 +14,6 @@ use crate::{
             HpSysPower,
             LpAnalog,
             LpSysPower,
-            RtcCalSel,
             SavedClockConfig,
             rtc_clk_cpu_freq_set_xtal,
         },
@@ -633,8 +633,7 @@ impl SleepTimeConfig {
             slowclk_cycles /= 32;
         }
 
-        let xtal_cycles =
-            RtcClock::calibrate_internal(RtcCalSel::RtcCalRcFast, slowclk_cycles) as u64;
+        let xtal_cycles = RtcClock::calibrate_internal(RtcCalSel::RcFast, slowclk_cycles) as u64;
 
         let divider: u64 = xtal_freq as u64 * slowclk_cycles as u64;
         let period_64: u64 = ((xtal_cycles << Self::RTC_CLK_CAL_FRACT) + divider / 2 - 1) / divider;
@@ -646,7 +645,7 @@ impl SleepTimeConfig {
 
         // Calibrate rtc slow clock
         // TODO: do an actual calibration instead of a read
-        let slowclk_period = unsafe { lp_aon().store1().read().lp_aon_store1().bits() };
+        let slowclk_period = unsafe { lp_aon().store1().read().data().bits() };
 
         // Calibrate rtc fast clock, only PMU supported chips sleep process is needed.
         const FAST_CLK_SRC_CAL_CYCLES: u32 = 2048;
@@ -730,7 +729,7 @@ impl SleepTimeConfig {
         #[rustfmt::skip] // ASCII art
         //  When the SOC wakeup (lp timer or GPIO wakeup) and Modem wakeup (Beacon wakeup) complete,
         // the soc wakeup will be delayed until the RF is turned on in Modem state.
-        // 
+        //
         //              modem wakeup                      TBTT, RF on by HW
         //                   |                                    |
         //                  \|/                                  \|/
@@ -744,10 +743,10 @@ impl SleepTimeConfig {
         //                   |                                                                  |
         //                   |<--      PMU guard time, also the maximum time for the SOC     -->|
         //                   |                           wake-up delay                          |
-        // 
-        const CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP: bool = true;
+        //
+        const CONFIG_ESP_RADIO_ENHANCED_LIGHT_SLEEP: bool = true;
 
-        let (rf_on_protect_time_us, sync_time_us) = if CONFIG_ESP_WIFI_ENHANCED_LIGHT_SLEEP {
+        let (rf_on_protect_time_us, sync_time_us) = if CONFIG_ESP_RADIO_ENHANCED_LIGHT_SLEEP {
             (
                 MachineConstants::HP_REGDMA_RF_ON_WORK_TIME_US,
                 MachineConstants::HP_CLOCK_DOMAIN_SYNC_TIME_US,

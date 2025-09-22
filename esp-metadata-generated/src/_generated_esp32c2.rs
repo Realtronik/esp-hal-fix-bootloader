@@ -36,6 +36,27 @@ macro_rules! property {
     ("trm") => {
         "https://www.espressif.com/sites/default/files/documentation/esp8684_technical_reference_manual_en.pdf"
     };
+    ("soc.cpu_has_csr_pc") => {
+        true
+    };
+    ("soc.cpu_has_prv_mode") => {
+        false
+    };
+    ("soc.rc_fast_clk_default") => {
+        17500000
+    };
+    ("soc.rc_fast_clk_default", str) => {
+        stringify!(17500000)
+    };
+    ("soc.rc_slow_clock") => {
+        136000
+    };
+    ("soc.rc_slow_clock", str) => {
+        stringify!(136000)
+    };
+    ("soc.has_multiple_xtal_options") => {
+        true
+    };
     ("assist_debug.has_sp_monitor") => {
         true
     };
@@ -138,14 +159,47 @@ macro_rules! property {
     ("interrupts.status_registers", str) => {
         stringify!(2)
     };
+    ("rng.apb_cycle_wait_num") => {
+        16
+    };
+    ("rng.apb_cycle_wait_num", str) => {
+        stringify!(16)
+    };
+    ("sha.dma") => {
+        true
+    };
     ("spi_master.has_octal") => {
         false
     };
     ("timergroup.timg_has_timer1") => {
         false
     };
+    ("timergroup.timg_has_divcnt_rst") => {
+        true
+    };
+    ("timergroup.default_clock_source") => {
+        0
+    };
+    ("timergroup.default_clock_source", str) => {
+        stringify!(0)
+    };
+    ("timergroup.default_wdt_clock_source") => {
+        0
+    };
+    ("timergroup.default_wdt_clock_source", str) => {
+        stringify!(0)
+    };
+    ("uart.ram_size") => {
+        128
+    };
+    ("uart.ram_size", str) => {
+        stringify!(128)
+    };
     ("wifi.has_wifi6") => {
         false
+    };
+    ("phy.combo_module") => {
+        true
     };
 }
 /// Macro to get the address range of the given memory region.
@@ -154,6 +208,31 @@ macro_rules! property {
 macro_rules! memory_range {
     ("DRAM") => {
         1070202880..1070465024
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_soc_xtal_options {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((26)); _for_each_inner!((40)); _for_each_inner!((all(26),
+        (40)));
+    };
+}
+#[macro_export]
+#[cfg_attr(docsrs, doc(cfg(feature = "_device-selected")))]
+macro_rules! for_each_sha_algorithm {
+    ($($pattern:tt => $code:tt;)*) => {
+        macro_rules! _for_each_inner { $(($pattern) => $code;)* ($other : tt) => {} }
+        _for_each_inner!((Sha1, "SHA-1"(sizes : 64, 20, 8) (insecure_against :
+        "collision", "length extension"), 0)); _for_each_inner!((Sha224, "SHA-224"(sizes
+        : 64, 28, 8) (insecure_against : "length extension"), 1));
+        _for_each_inner!((Sha256, "SHA-256"(sizes : 64, 32, 8) (insecure_against :
+        "length extension"), 2)); _for_each_inner!((algos(Sha1, "SHA-1"(sizes : 64, 20,
+        8) (insecure_against : "collision", "length extension"), 0), (Sha224,
+        "SHA-224"(sizes : 64, 28, 8) (insecure_against : "length extension"), 1),
+        (Sha256, "SHA-256"(sizes : 64, 32, 8) (insecure_against : "length extension"),
+        2)));
     };
 }
 /// This macro can be used to generate code for each peripheral instance of the I2C master driver.
@@ -294,9 +373,10 @@ macro_rules! for_each_peripheral {
         LEDC() (unstable))); _for_each_inner!((RNG <= RNG() (unstable)));
         _for_each_inner!((LPWR <= RTC_CNTL() (unstable))); _for_each_inner!((MODEM_CLKRST
         <= MODEM_CLKRST() (unstable))); _for_each_inner!((SENSITIVE <= SENSITIVE()
-        (unstable))); _for_each_inner!((SHA <= SHA() (unstable))); _for_each_inner!((SPI0
-        <= SPI0() (unstable))); _for_each_inner!((SPI1 <= SPI1() (unstable)));
-        _for_each_inner!((SPI2 <= SPI2(SPI2 : { bind_peri_interrupt,
+        (unstable))); _for_each_inner!((SHA <= SHA(SHA : { bind_peri_interrupt,
+        enable_peri_interrupt, disable_peri_interrupt }) (unstable)));
+        _for_each_inner!((SPI0 <= SPI0() (unstable))); _for_each_inner!((SPI1 <= SPI1()
+        (unstable))); _for_each_inner!((SPI2 <= SPI2(SPI2 : { bind_peri_interrupt,
         enable_peri_interrupt, disable_peri_interrupt }))); _for_each_inner!((SYSTEM <=
         SYSTEM() (unstable))); _for_each_inner!((SYSTIMER <= SYSTIMER() (unstable)));
         _for_each_inner!((TIMG0 <= TIMG0() (unstable))); _for_each_inner!((UART0 <=
@@ -328,7 +408,8 @@ macro_rules! for_each_peripheral {
         INTERRUPT_CORE0() (unstable)), (IO_MUX <= IO_MUX() (unstable)), (LEDC <= LEDC()
         (unstable)), (RNG <= RNG() (unstable)), (LPWR <= RTC_CNTL() (unstable)),
         (MODEM_CLKRST <= MODEM_CLKRST() (unstable)), (SENSITIVE <= SENSITIVE()
-        (unstable)), (SHA <= SHA() (unstable)), (SPI0 <= SPI0() (unstable)), (SPI1 <=
+        (unstable)), (SHA <= SHA(SHA : { bind_peri_interrupt, enable_peri_interrupt,
+        disable_peri_interrupt }) (unstable)), (SPI0 <= SPI0() (unstable)), (SPI1 <=
         SPI1() (unstable)), (SPI2 <= SPI2(SPI2 : { bind_peri_interrupt,
         enable_peri_interrupt, disable_peri_interrupt })), (SYSTEM <= SYSTEM()
         (unstable)), (SYSTIMER <= SYSTIMER() (unstable)), (TIMG0 <= TIMG0() (unstable)),

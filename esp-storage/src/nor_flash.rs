@@ -189,7 +189,7 @@ impl MultiwriteNorFlash for FlashStorage {}
 
 // Run the tests with `--test-threads=1` - the emulation is not multithread safe
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     const WORD_SIZE: u32 = 4;
@@ -319,6 +319,7 @@ mod test {
     #[cfg(feature = "bytewise-read")]
     fn bytewise_read_aligned_buffer() {
         let mut flash = FlashStorage::new();
+
         flash.capacity = 4 * 4096;
         let src = TestBuffer::seq();
         let mut data = TestBuffer::default();
@@ -339,6 +340,7 @@ mod test {
     #[cfg(feature = "bytewise-read")]
     fn bytewise_read_not_aligned_buffer() {
         let mut flash = FlashStorage::new();
+
         flash.capacity = 4 * 4096;
         let src = TestBuffer::seq();
         let mut data = TestBuffer::default();

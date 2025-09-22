@@ -551,7 +551,7 @@ macro_rules! declare_aligned_dma_buffer {
         // ESP32-S2 technically supports byte-aligned DMA buffers, but the
         // transfer ends up writing out of bounds.
         // if the buffer's length is 2 or 3 (mod 4).
-        static mut $name: [u32; ($size + 3) / 4] = [0; ($size + 3) / 4];
+        static mut $name: [u32; ($size as usize).div_ceil(4)] = [0; ($size as usize).div_ceil(4)];
     };
 }
 
@@ -987,7 +987,6 @@ impl DescriptorChain {
         self.descriptors.last().unwrap()
     }
 
-    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     pub fn fill_for_rx(
         &mut self,
         circular: bool,
@@ -1000,7 +999,6 @@ impl DescriptorChain {
         })
     }
 
-    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     pub fn fill_for_tx(
         &mut self,
         is_circular: bool,
@@ -1690,7 +1688,6 @@ impl<DEG: DmaChannel> DmaChannelConvert<DEG> for DEG {
 /// let spi_dma = configures_spi_dma(spi, dma_channel);
 /// # {after_snippet}
 /// ```
-#[allow(private_bounds)]
 pub trait DmaChannelFor<P: DmaEligible>:
     DmaChannel + DmaChannelConvert<PeripheralDmaChannel<P>>
 {
@@ -1709,7 +1706,6 @@ where
 ///
 /// You can use this in places where a peripheral driver would expect a
 /// `DmaRxChannel` implementation.
-#[allow(private_bounds)]
 pub trait RxChannelFor<P: DmaEligible>: DmaChannelConvert<PeripheralRxChannel<P>> {}
 impl<P, RX> RxChannelFor<P> for RX
 where
@@ -1725,7 +1721,6 @@ where
 ///
 /// You can use this in places where a peripheral driver would expect a
 /// `DmaTxChannel` implementation.
-#[allow(private_bounds)]
 pub trait TxChannelFor<PER: DmaEligible>: DmaChannelConvert<PeripheralTxChannel<PER>> {}
 impl<P, TX> TxChannelFor<P> for TX
 where
@@ -1746,7 +1741,7 @@ cfg_if::cfg_if! {
 
 fn create_guard(_ch: &impl RegisterAccess) -> PeripheralGuard {
     // NOTE(p4): this function will read the channel's DMA peripheral from `_ch`
-    system::GenericPeripheralGuard::new_with(init_dma)
+    system::GenericPeripheralGuard::new_with(init_dma_racey)
 }
 
 // DMA receive channel
@@ -1906,7 +1901,7 @@ where
         cfg_if::cfg_if! {
             if #[cfg(psram_dma)] {
                 let mut uses_psram = false;
-                let psram_range = crate::soc::psram_range();
+                let psram_range = crate::psram::psram_range();
                 for des in chain.descriptors.iter() {
                     // we are forcing the DMA alignment to the cache line size
                     // required when we are using dcache
@@ -2172,7 +2167,7 @@ where
         cfg_if::cfg_if! {
             if #[cfg(psram_dma)] {
                 let mut uses_psram = false;
-                let psram_range = crate::soc::psram_range();
+                let psram_range = crate::psram::psram_range();
                 for des in chain.descriptors.iter() {
                     // we are forcing the DMA alignment to the cache line size
                     // required when we are using dcache

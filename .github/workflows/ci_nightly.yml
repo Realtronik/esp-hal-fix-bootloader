@@ -37,6 +37,15 @@ jobs:
           toolchain: nightly
           components: rust-src, clippy, rustfmt
 
+      - name: Setup cargo-batch
+        run: |
+          # Note this is linux-only, but the macOS runner has cargo batch installed
+          if ! command -v cargo-batch &> /dev/null; then
+              mkdir -p $HOME/.cargo/bin
+              curl -L https://github.com/embassy-rs/cargo-batch/releases/download/batch-0.6.0/cargo-batch > $HOME/.cargo/bin/cargo-batch
+              chmod +x $HOME/.cargo/bin/cargo-batch
+          fi
+
       - name: Build and Check
         shell: bash
         run: cargo xtask ci ${{ matrix.device }} --toolchain nightly
@@ -56,3 +65,9 @@ jobs:
               --body "Nightly CI Workflow Failed! [View the failed job](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})." \
               --label "ci-nightly"
           fi
+
+      # Check for unused dependencies through esp-hal packages
+      - name: Install and run cargo machete
+        run: |
+          cargo install cargo-machete
+          cargo machete

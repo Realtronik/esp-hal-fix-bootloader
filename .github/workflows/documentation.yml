@@ -8,7 +8,7 @@ on:
       packages:
         description: >
           A JSON structure describing the packages to build.
-          E.g: [{"name":"esp-hal","tag":"v0.23.1"},{"name":"esp-wifi","tag":"esp-wifi-v0.12"}]
+          E.g: [{"name":"esp-hal","tag":"v0.23.1"},{"name":"esp-radio","tag":"esp-radio-v0.12"}]
 
           NOTE: You can run `cargo xtask release tag-releases` to get the json output generated for this workflow.
 
@@ -86,7 +86,7 @@ jobs:
       - uses: esp-rs/xtensa-toolchain@v1.6
         with:
           default: true
-          version: 1.88.0.0
+          version: 1.89.0.0
 
       # xtensa-toolchain installs rustup and a basic toolchain, but doesn't install rust-src
       - name: rust-src

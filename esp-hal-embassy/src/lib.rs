@@ -35,7 +35,7 @@
 //! queue flavour, then you need to pass as many timers as you start executors.
 //! In other cases, you can pass a single timer.
 //!
-//! ## Configuration
+//! ## Additional Configuration
 //!
 //! You can configure the behaviour of the embassy runtime by using the
 //! following environment variables:
@@ -204,7 +204,7 @@ pub fn init(time_driver: impl TimeBase) {
 
         esp_hal::interrupt::bind_interrupt(
             esp_hal::peripherals::Interrupt::FROM_CPU_INTR3,
-            software3_interrupt,
+            esp_hal::interrupt::IsrCallback::new(software3_interrupt),
         );
     }
 

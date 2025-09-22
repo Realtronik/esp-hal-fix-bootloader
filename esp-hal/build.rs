@@ -22,6 +22,11 @@ macro_rules! assert_unique_features {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // if using '"rust-analyzer.cargo.buildScripts.useRustcWrapper": true' we can detect this
+    let suppress_panics = std::env::var("RUSTC_WRAPPER")
+        .unwrap_or_default()
+        .contains("rust-analyzer");
+
     println!("cargo:rustc-check-cfg=cfg(is_debug_build)");
     if let Ok(level) = std::env::var("OPT_LEVEL")
         && (level == "0" || level == "1")
@@ -30,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // If some library required unstable make sure unstable is actually enabled.
-    if cfg!(feature = "requires-unstable") && !cfg!(feature = "unstable") {
+    if !suppress_panics && cfg!(feature = "requires-unstable") && !cfg!(feature = "unstable") {
         panic!(
             "\n\nThe `unstable` feature is required by a dependent crate but is not enabled.\n\n"
         );
@@ -44,7 +49,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Ensure that exactly one chip has been specified:
     let chip = esp_metadata_generated::Chip::from_cargo_feature()?;
 
-    if chip.target() != std::env::var("TARGET").unwrap_or_default().as_str() {
+    if !suppress_panics && chip.target() != std::env::var("TARGET").unwrap_or_default().as_str() {
         panic!("
         Seems you are building for an unsupported or wrong target (e.g. the host environment).
         Maybe you are missing the `target` in `.cargo/config.toml` or you have configs overriding it?
@@ -65,11 +70,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     // RISC-V and Xtensa devices each require some special handling and processing
     // of linker scripts:
 
-    let mut config_symbols = chip.all_symbols().to_vec();
+    let mut config_symbols: Vec<String> =
+        chip.all_symbols().iter().map(|c| c.to_string()).collect();
 
     for (key, value) in &cfg {
-        if let Value::Bool(true) = value {
-            config_symbols.push(key.as_str());
+        match value {
+            Value::Bool(true) => {
+                config_symbols.push(key.clone());
+            }
+            Value::String(v) => {
+                config_symbols.push(format!("{key}_{v}"));
+            }
+            _ => {}
         }
     }
 
@@ -135,7 +147,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 // Helper Functions
 #[cfg(feature = "rt")]
 fn copy_dir_all(
-    config_symbols: &[&str],
+    config_symbols: &[String],
     cfg: &HashMap<String, Value>,
     src: impl AsRef<Path>,
     dst: impl AsRef<Path>,
@@ -166,7 +178,7 @@ fn copy_dir_all(
 /// A naive pre-processor for linker scripts
 #[cfg(feature = "rt")]
 fn preprocess_file(
-    config: &[&str],
+    config: &[String],
     cfg: &HashMap<String, Value>,
     src: impl AsRef<Path>,
     dst: impl AsRef<Path>,
@@ -185,7 +197,7 @@ fn preprocess_file(
 
         if let Some(condition) = trimmed.strip_prefix("#IF ") {
             let should_take = take.iter().all(|v| *v);
-            let should_take = should_take && config.contains(&condition);
+            let should_take = should_take && config.iter().any(|c| c == condition);
             take.push(should_take);
             continue;
         } else if trimmed == "#ELSE" {

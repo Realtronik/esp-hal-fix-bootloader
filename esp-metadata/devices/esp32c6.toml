@@ -13,7 +13,7 @@ cores  = 1
 trm    = "https://www.espressif.com/sites/default/files/documentation/esp32-c6_technical_reference_manual_en.pdf"
 
 peripherals = [
-    { name = "AES" },
+    { name = "AES", interrupts = { peri = "AES" } },
     { name = "APB_SARADC" },
     { name = "ASSIST_DEBUG" },
     { name = "ATOMIC" },
@@ -63,8 +63,8 @@ peripherals = [
     { name = "PMU" },
     { name = "RMT" },
     { name = "RNG" },
-    { name = "RSA" },
-    { name = "SHA" },
+    { name = "RSA", interrupts = { peri = "RSA" } },
+    { name = "SHA", interrupts = { peri = "SHA" } },
     { name = "SLCHOST" },
     { name = "ETM", pac = "SOC_ETM" },
     { name = "SPI0" },
@@ -110,6 +110,7 @@ symbols = [
     "plic",
     "phy",
     "lp_core",
+    "swd",
 
     # ROM capabilities
     "rom_crc_le",
@@ -123,15 +124,36 @@ symbols = [
     "gpio_support_deepsleep_wakeup",
     "uart_support_wakeup_int",
     "pm_support_ext1_wakeup",
+
+    # Which bluetooth implementation
+    "npl",
 ]
 
 memory = [{ name = "dram", start = 0x4080_0000, end = 0x4088_0000 }]
+
+[device.soc]
+cpu_has_csr_pc = true
+cpu_has_prv_mode = true
+rc_fast_clk_default = 17_500_000
+rc_slow_clock = 136_000
+xtal_options = [40]
 
 [device.adc]
 support_status = "partial"
 instances = [
     { name = "adc1" },
 ]
+
+[device.aes]
+support_status = "partial"
+has_split_text_registers = true
+endianness_configurable = false
+dma = true
+dma_mode = ["ECB", "CBC", "OFB", "CTR", "CFB8", "CFB128"]
+key_length = { options = [
+    { bits = 128, encrypt_mode = 0, decrypt_mode = 4 },
+    { bits = 256, encrypt_mode = 2, decrypt_mode = 6 }
+] }
 
 [device.assist_debug]
 support_status = "partial"
@@ -425,6 +447,10 @@ has_arbitration_en = true
 has_tx_fifo_watermark = true
 bus_timeout_is_exponential = true
 
+[device.lp_i2c_master]
+support_status = "partial"
+fifo_size = 16
+
 [device.i2c_slave]
 support_status = "not_supported"
 
@@ -436,6 +462,17 @@ status_registers = 3
 support_status = "partial"
 ram_start = 0x60006400
 channel_ram_size = 48
+channels = ["Tx", "Tx", "Rx", "Rx"]
+
+[device.rsa]
+support_status = "partial"
+size_increment = 32
+memory_size_bytes = 384
+
+[device.sha]
+support_status = "partial"
+dma = true
+algo = { sha1 = 0, sha224 = 1, sha256 = 2 }
 
 [device.spi_master]
 support_status = "supported"
@@ -444,12 +481,17 @@ instances = [
 ]
 
 [device.spi_slave]
+support_status = "partial"
 instances = [
     { name = "spi2", sys_instance = "Spi2", sclk = "FSPICLK",  mosi = "FSPID",  miso = "FSPIQ",  cs = "FSPICS0" },
 ]
 
 [device.timergroup]
+support_status = "partial"
 instances = [{ name = "timg0" }, { name = "timg1" }]
+timg_has_divcnt_rst = true
+default_clock_source = 1
+default_wdt_clock_source = 1
 
 [device.uart]
 support_status = "supported"
@@ -457,6 +499,11 @@ instances = [
     { name = "uart0", sys_instance = "Uart0", tx = "U0TXD", rx = "U0RXD", cts = "U0CTS", rts = "U0RTS" },
     { name = "uart1", sys_instance = "Uart1", tx = "U1TXD", rx = "U1RXD", cts = "U1CTS", rts = "U1RTS" },
 ]
+ram_size = 128
+
+[device.lp_uart]
+support_status = "partial"
+ram_size = 32
 
 [device.ds]
 support_status = "not_supported"
@@ -465,15 +512,15 @@ support_status = "not_supported"
 support_status = "partial"
 has_wifi6 = true
 
+[device.rng]
+support_status = "partial"
+apb_cycle_wait_num = 16 # TODO
+
 # Other drivers which are partially supported but have no other configuration:
 
 ## Crypto
-[device.aes]
 [device.ecc]
-[device.rsa]
-[device.sha]
 [device.hmac]
-[device.rng]
 
 ## Interfaces
 [device.i2s]
@@ -497,3 +544,5 @@ has_wifi6 = true
 ## Radio
 [device.bt]
 [device.ieee802154]
+[device.phy]
+combo_module = true

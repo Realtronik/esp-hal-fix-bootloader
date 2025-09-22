@@ -13,7 +13,7 @@ cores  = 2
 trm    = "https://www.espressif.com/sites/default/files/documentation/esp32-s3_technical_reference_manual_en.pdf"
 
 peripherals = [
-    { name = "AES" },
+    { name = "AES", interrupts = { peri = "AES" } },
     { name = "APB_CTRL" },
     { name = "APB_SARADC" },
     { name = "ASSIST_DEBUG" },
@@ -40,14 +40,14 @@ peripherals = [
     { name = "PERI_BACKUP" },
     { name = "RMT" },
     { name = "RNG" },
-    { name = "RSA" },
+    { name = "RSA", interrupts = { peri = "RSA" } },
     { name = "RTC_CNTL" },
     { name = "RTC_I2C" },
     { name = "RTC_IO" },
     { name = "SDHOST" },
     { name = "SENS" },
     { name = "SENSITIVE" },
-    { name = "SHA" },
+    { name = "SHA", interrupts = { peri = "SHA" } },
     { name = "SPI0" },
     { name = "SPI1" },
     { name = "SPI2", interrupts = { peri = "SPI2" } },
@@ -61,7 +61,6 @@ peripherals = [
     { name = "UART1", interrupts = { peri = "UART1" } },
     { name = "UART2", interrupts = { peri = "UART2" } },
     { name = "UHCI0" },
-    { name = "UHCI1" },
     { name = "USB0" },
     { name = "USB_DEVICE", interrupts = { peri = "USB_DEVICE" } },
     { name = "USB_WRAP" },
@@ -91,6 +90,7 @@ symbols = [
     "psram",
     "psram_dma",
     "octal_psram",
+    "swd",
     "ulp_riscv_core",
 
     # ROM capabilities
@@ -107,9 +107,17 @@ symbols = [
     "uart_support_wakeup_int",
     "ulp_supported",
     "riscv_coproc_supported",
+
+    # Which bluetooth implementation
+    "btdm",
 ]
 
 memory = [{ name = "dram", start = 0x3FC8_8000, end = 0x3FD0_0000 }]
+
+[device.soc]
+rc_fast_clk_default = 17_500_000
+rc_slow_clock = 136_000
+xtal_options = [40]
 
 [device.adc]
 support_status = "partial"
@@ -117,6 +125,17 @@ instances = [
     { name = "adc1" },
     { name = "adc2" },
 ]
+
+[device.aes]
+support_status = "partial"
+has_split_text_registers = true
+endianness_configurable = false
+dma = true
+dma_mode = ["ECB", "CBC", "OFB", "CTR", "CFB8", "CFB128"]
+key_length = { options = [
+    { bits = 128, encrypt_mode = 0, decrypt_mode = 4 },
+    { bits = 256, encrypt_mode = 2, decrypt_mode = 6 }
+] }
 
 [device.assist_debug]
 support_status = "partial"
@@ -557,7 +576,7 @@ instances = [
     { name = "i2c1", sys_instance = "I2cExt1", scl = "I2CEXT1_SCL", sda = "I2CEXT1_SDA" },
 ]
 has_fsm_timeouts = true
-has_hw_bus_clear = true
+has_hw_bus_clear = false
 ll_intr_mask = 0x3ffff
 fifo_size = 32
 has_bus_timeout_enable = true
@@ -579,6 +598,17 @@ status_registers = 4
 support_status = "partial"
 ram_start = 0x60016800
 channel_ram_size = 48
+channels = ["Tx", "Tx", "Tx", "Tx", "Rx", "Rx", "Rx", "Rx"]
+
+[device.rsa]
+support_status = "partial"
+size_increment = 32
+memory_size_bytes = 512
+
+[device.sha]
+support_status = "partial"
+dma = true
+algo = { sha1 = 0, sha224 = 1, sha256 = 2, sha384 = 3, sha512 = 4, sha512_224 = 5, sha512_256 = 6, sha512_t = 7 }
 
 [device.spi_master]
 support_status = "supported"
@@ -589,14 +619,18 @@ instances = [
 ]
 
 [device.spi_slave]
+support_status = "partial"
 instances = [
     { name = "spi2", sys_instance = "Spi2", sclk = "FSPICLK",  mosi = "FSPID",  miso = "FSPIQ",  cs = "FSPICS0" },
     { name = "spi3", sys_instance = "Spi3", sclk = "SPI3_CLK", mosi = "SPI3_D", miso = "SPI3_Q", cs = "SPI3_CS0" },
 ]
 
 [device.timergroup]
+support_status = "partial"
 timg_has_timer1 = true
+timg_has_divcnt_rst = false
 instances = [{ name = "timg0" }, { name = "timg1" }]
+default_clock_source = 0 # use_xtal = false
 
 [device.uart]
 support_status = "supported"
@@ -605,6 +639,7 @@ instances = [
     { name = "uart1", sys_instance = "Uart1", tx = "U1TXD", rx = "U1RXD", cts = "U1CTS", rts = "U1RTS" },
     { name = "uart2", sys_instance = "Uart2", tx = "U2TXD", rx = "U2RXD", cts = "U2CTS", rts = "U2RTS" },
 ]
+ram_size = 128
 
 [device.touch]
 support_status = "not_supported"
@@ -612,14 +647,14 @@ support_status = "not_supported"
 [device.ds]
 support_status = "not_supported"
 
+[device.rng]
+support_status = "partial"
+apb_cycle_wait_num = 16 # TODO
+
 # Other drivers which are partially supported but have no other configuration:
 
 ## Crypto
-[device.aes]
-[device.rsa]
 [device.hmac]
-[device.sha]
-[device.rng]
 
 ## Interfaces
 [device.i2s]
@@ -646,3 +681,6 @@ support_status = "not_supported"
 ## Radio
 [device.wifi]
 [device.bt]
+[device.phy]
+combo_module = true
+backed_up_digital_register_count = 21

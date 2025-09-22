@@ -358,7 +358,7 @@ where
 
         #[cfg(any(esp32c3, esp32s3))]
         {
-            use crate::soc::efuse::*;
+            use crate::efuse::{Efuse, USB_EXCHG_PINS};
 
             // On the esp32c3, and esp32s3 the USB_EXCHG_PINS efuse is bugged and
             // doesn't swap the pullups too, this works around that.
@@ -742,9 +742,9 @@ impl UsbSerialJtagTx<'_, Async> {
     async fn flush_tx_async(&mut self) -> Result<(), Error> {
         if self
             .regs()
-            .jfifo_st()
+            .ep1_conf()
             .read()
-            .out_fifo_empty()
+            .serial_in_ep_data_free()
             .bit_is_clear()
         {
             UsbSerialJtagWriteFuture::new(self.peripheral.reborrow()).await;

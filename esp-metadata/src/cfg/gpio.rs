@@ -6,7 +6,11 @@ use std::str::FromStr;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
-use crate::{cfg::Value, generate_for_each_macro, number};
+use crate::{
+    cfg::{GenericProperty, Value},
+    generate_for_each_macro,
+    number,
+};
 
 /// Additional properties (besides those defined in cfg.rs) for [device.gpio].
 /// These don't get turned into symbols, but are used to generate code.
@@ -21,6 +25,8 @@ pub(crate) struct GpioPinsAndSignals {
     /// The list of peripheral output signals.
     pub output_signals: Vec<IoMuxSignal>,
 }
+
+impl GenericProperty for GpioPinsAndSignals {}
 
 /// Properties of a single GPIO pin.
 #[derive(Debug, Default, Clone, serde::Deserialize, serde::Serialize)]
@@ -180,7 +186,7 @@ pub(crate) struct IoMuxSignal {
 }
 
 impl super::GpioProperties {
-    pub(super) fn computed_properties(&self) -> impl Iterator<Item = (&str, Value)> {
+    pub(super) fn computed_properties(&self) -> impl Iterator<Item = (&str, bool, Value)> {
         let input_max = self
             .pins_and_signals
             .input_signals
@@ -197,8 +203,8 @@ impl super::GpioProperties {
             .unwrap_or(0) as u32;
 
         [
-            ("gpio.input_signal_max", Value::Number(input_max)),
-            ("gpio.output_signal_max", Value::Number(output_max)),
+            ("gpio.input_signal_max", false, Value::Number(input_max)),
+            ("gpio.output_signal_max", false, Value::Number(output_max)),
         ]
         .into_iter()
     }
@@ -376,24 +382,17 @@ pub(crate) fn generate_gpios(gpio: &super::GpioProperties) -> TokenStream {
     let io_mux_accessor = if gpio.remap_iomux_pin_registers {
         let iomux_pin_regs = gpio.pins_and_signals.pins.iter().map(|pin| {
             let pin = number(pin.pin);
-            let reg = format_ident!("GPIO{pin}");
             let accessor = format_ident!("gpio{pin}");
 
-            quote! { #pin => transmute::<&'static io_mux::#reg, &'static io_mux::GPIO0>(iomux.#accessor()), }
+            quote! { #pin => iomux.#accessor(), }
         });
 
         quote! {
             pub(crate) fn io_mux_reg(gpio_num: u8) -> &'static crate::pac::io_mux::GPIO0 {
-                use core::mem::transmute;
-
-                use crate::{pac::io_mux, peripherals::IO_MUX};
-
-                let iomux = IO_MUX::regs();
-                unsafe {
-                    match gpio_num {
-                        #(#iomux_pin_regs)*
-                        other => panic!("GPIO {} does not exist", other),
-                    }
+                let iomux = crate::peripherals::IO_MUX::regs();
+                match gpio_num {
+                    #(#iomux_pin_regs)*
+                    other => panic!("GPIO {} does not exist", other),
                 }
             }
 
