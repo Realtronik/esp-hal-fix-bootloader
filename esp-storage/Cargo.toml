@@ -24,7 +24,7 @@ cfg-if           = "1.0.0"
 
 # Optional dependencies
 esp-sync         = { version = "0.0.0", path = "../esp-sync", optional = true }
-esp-rom-sys      = { version = "0.1.1", path = "../esp-rom-sys", optional = true }
+esp-rom-sys      = { git = "https://github.com/Realtronik/esp-hal-fix-bootloader.git", rev = "3a6f30e8221452faafc81768d8a52ee03105ae65", optional = true }
 defmt  = { version = "1.0.1", optional = true }
 
 # Unstable dependencies that are not (strictly) part of the public API
