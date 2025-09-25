@@ -1,46 +1,43 @@
 [package]
-name          = "esp-alloc"
-version       = "0.8.0"
-edition       = "2024"
-rust-version  = "1.86.0"
-description   = "A heap allocator for Espressif devices"
+name = "esp-alloc"
+version = "0.8.0"
+edition = "2024"
+rust-version = "1.86.0"
+description = "A heap allocator for Espressif devices"
 documentation = "https://docs.espressif.com/projects/rust/esp-alloc/latest/"
-keywords      = ["allocator", "embedded", "esp32", "espressif", "memory"]
-categories    = ["embedded", "memory-management", "no-std"]
-repository    = "https://github.com/esp-rs/esp-hal"
-license       = "MIT OR Apache-2.0"
+keywords = ["allocator", "embedded", "esp32", "espressif", "memory"]
+categories = ["embedded", "memory-management", "no-std"]
+repository = "https://github.com/esp-rs/esp-hal"
+license = "MIT OR Apache-2.0"
 
 [package.metadata.espressif]
 doc-config = { features = ["defmt"] }
-check-configs = [
-    { features = [] },
-    { features = ["defmt"] }
-]
-clippy-configs = [
-    { features = ["defmt"] },
-]
+check-configs = [{ features = [] }, { features = ["defmt"] }]
+clippy-configs = [{ features = ["defmt"] }]
 
 [package.metadata.docs.rs]
 default-target = "riscv32imc-unknown-none-elf"
-features       = ["nightly"]
+features = ["nightly"]
 
 [lib]
 bench = false
 test = false
 
 [dependencies]
-allocator-api2        = { version = "0.3.0", default-features = false }
-defmt                 = { version = "1.0.1", optional = true }
-cfg-if                = "1.0.0"
-enumset               = "1.1.6"
-esp-sync              = { version = "0.0.0", path = "../esp-sync" }
-document-features     = "0.2.11"
+allocator-api2 = { version = "0.3.0", default-features = false }
+defmt = { version = "1.0.1", optional = true }
+cfg-if = "1"
+enumset = "1.1.6"
+esp-sync = { version = "0.0.0", path = "../esp-sync" }
+document-features = "0.2.11"
 
-linked_list_allocator = { version = "0.10.5", default-features = false, features = ["const_mut_refs"] }
+linked_list_allocator = { version = "0.10.5", default-features = false, features = [
+    "const_mut_refs",
+] }
 rlsf = { version = "0.2", features = ["unstable"] }
 
 [build-dependencies]
-esp-config   = { version = "0.5.0", path = "../esp-config", features = ["build"] }
+esp-config = { version = "0.5.0", path = "../esp-config", features = ["build"] }
 
 [features]
 default = ["compat"]
@@ -67,16 +64,16 @@ compat = []
 #! One of the following features must be enabled to select the target chip:
 
 ##
-esp32c2   = ["esp-sync/esp32c2"]
+esp32c2 = ["esp-sync/esp32c2"]
 ##
-esp32c3   = ["esp-sync/esp32c3"]
+esp32c3 = ["esp-sync/esp32c3"]
 ##
-esp32c6   = ["esp-sync/esp32c6"]
+esp32c6 = ["esp-sync/esp32c6"]
 ##
-esp32h2   = ["esp-sync/esp32h2"]
+esp32h2 = ["esp-sync/esp32h2"]
 ##
-esp32     = ["esp-sync/esp32"]
+esp32 = ["esp-sync/esp32"]
 ##
-esp32s2   = ["esp-sync/esp32s2"]
+esp32s2 = ["esp-sync/esp32s2"]
 ##
-esp32s3   = ["esp-sync/esp32s3"]
+esp32s3 = ["esp-sync/esp32s3"]

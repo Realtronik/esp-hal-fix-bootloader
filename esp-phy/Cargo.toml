@@ -1,44 +1,44 @@
 [package]
-name          = "esp-phy"
-version       = "0.0.1"
-edition       = "2024"
-description   = "PHY initialization"
+name = "esp-phy"
+version = "0.0.1"
+edition = "2024"
+description = "PHY initialization"
 documentation = "https://docs.espressif.com/projects/rust/esp-preempt/latest/"
-keywords      = ["esp32", "espressif", "no-std"]
-categories    = ["embedded", "hardware-support", "no-std"]
-repository    = "https://github.com/esp-rs/esp-hal"
-license       = "MIT OR Apache-2.0"
+keywords = ["esp32", "espressif", "no-std"]
+categories = ["embedded", "hardware-support", "no-std"]
+repository = "https://github.com/esp-rs/esp-hal"
+license = "MIT OR Apache-2.0"
 
 [package.metadata.espressif]
 doc-config = { features = ["esp-hal/unstable", "defmt"] }
-check-configs = [
-    { features = ["esp-hal/unstable"] },
-]
-clippy-configs = [
-    { features = ["esp-hal/unstable", "defmt"] },
-]
+check-configs = [{ features = ["esp-hal/unstable"] }]
+clippy-configs = [{ features = ["esp-hal/unstable", "defmt"] }]
 
 [package.metadata.docs.rs]
 default-target = "riscv32imac-unknown-none-elf"
-features       = ["esp32c6"]
+features = ["esp32c6"]
 
 [lib]
 bench = false
 
 [dependencies]
-esp-hal = { version = "1.0.0-rc.0", path = "../esp-hal", default-features = false, features = ["requires-unstable"] }
+esp-hal = { version = "1.0.0-rc.0", path = "../esp-hal", default-features = false, features = [
+  "requires-unstable",
+] }
 esp-wifi-sys = "0.8.1"
 esp-metadata-generated = { version = "0.1.0", path = "../esp-metadata-generated" }
 esp-sync = { version = "0.0.0", path = "../esp-sync" }
 
-cfg-if = "1.0.1"
+cfg-if = "1"
 
 defmt = { version = "1.0.1", optional = true }
 log-04 = { version = "0.4.27", package = "log", optional = true }
 
 [build-dependencies]
-esp-config   = { version = "0.5.0", path = "../esp-config", features = ["build"] }
-esp-metadata-generated = { version = "0.1.0", path = "../esp-metadata-generated", features = ["build-script"] }
+esp-config = { version = "0.5.0", path = "../esp-config", features = ["build"] }
+esp-metadata-generated = { version = "0.1.0", path = "../esp-metadata-generated", features = [
+  "build-script",
+] }
 
 [features]
 defmt = ["dep:defmt"]
@@ -70,11 +70,7 @@ esp32h2 = [
   "esp-metadata-generated/esp32h2",
 ]
 # Target the ESP32.
-esp32 = [
-  "esp-hal/esp32",
-  "esp-wifi-sys/esp32",
-  "esp-metadata-generated/esp32",
-]
+esp32 = ["esp-hal/esp32", "esp-wifi-sys/esp32", "esp-metadata-generated/esp32"]
 # Target the ESP32-S2.
 esp32s2 = [
   "esp-hal/esp32s2",
