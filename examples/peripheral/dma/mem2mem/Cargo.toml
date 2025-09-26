@@ -1,11 +1,11 @@
 [package]
-name    = "dma-mem2mem"
+name = "dma-mem2mem"
 version = "0.0.0"
 edition = "2024"
 publish = false
 
 [dependencies]
-cfg-if = "1.0.0"
+cfg-if = "1"
 esp-backtrace = { path = "../../../../esp-backtrace", features = [
     "panic-handler",
     "println",
@@ -48,7 +48,7 @@ esp32s3 = [
 ]
 
 [profile.release]
-debug            = true
+debug = true
 debug-assertions = true
-lto              = "fat"
-codegen-units    = 1
+lto = "fat"
+codegen-units = 1

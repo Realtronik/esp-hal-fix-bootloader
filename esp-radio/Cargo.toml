@@ -2,7 +2,7 @@
 name = "esp-radio"
 version = "0.15.0"
 edition = "2024"
-rust-version  = "1.88.0"
+rust-version = "1.88.0"
 description = "A WiFi, Bluetooth and ESP-NOW driver for use with Espressif chips and bare-metal Rust"
 documentation = "https://docs.espressif.com/projects/rust/esp-wifi/latest/"
 keywords = ["wifi", "bluetooth", "esp-now", "esp32", "no-std"]
@@ -11,37 +11,120 @@ repository = "https://github.com/esp-rs/esp-hal"
 license = "MIT OR Apache-2.0"
 
 [package.metadata.espressif]
-doc-config = { features = ["esp-hal/unstable", "esp-hal/rt", "defmt"], append = [
-    { if = 'chip_has("wifi")', features = ["wifi", "wifi-eap", "esp-now", "sniffer", "smoltcp/proto-ipv4", "smoltcp/proto-ipv6"] },
-    { if = 'chip_has("bt")', features = ["ble"] },
-    { if = 'chip_has("ieee802154")', features = ["ieee802154", "__docs_build"] },
-    { if = 'chip_has("wifi") && chip_has("bt")', features = ["coex"] },
-    { if = 'chip_has("wifi") || chip_has("bt") || chip_has("ieee802154")', features = ["unstable"] },
+doc-config = { features = [
+  "esp-hal/unstable",
+  "esp-hal/rt",
+  "defmt",
+], append = [
+  { if = 'chip_has("wifi")', features = [
+    "wifi",
+    "wifi-eap",
+    "esp-now",
+    "sniffer",
+    "smoltcp/proto-ipv4",
+    "smoltcp/proto-ipv6",
+  ] },
+  { if = 'chip_has("bt")', features = [
+    "ble",
+  ] },
+  { if = 'chip_has("ieee802154")', features = [
+    "ieee802154",
+    "__docs_build",
+  ] },
+  { if = 'chip_has("wifi") && chip_has("bt")', features = [
+    "coex",
+  ] },
+  { if = 'chip_has("wifi") || chip_has("bt") || chip_has("ieee802154")', features = [
+    "unstable",
+  ] },
 ] }
 check-configs = [
-    { features = ["esp-hal/unstable", "esp-hal/rt"] },
-    { features = ["esp-hal/unstable", "esp-hal/rt", "defmt"] },
-    { features = ["esp-hal/unstable", "esp-hal/rt", "wifi"], if = 'chip_has("wifi")' },
-    { features = ["esp-hal/unstable", "esp-hal/rt", "unstable", "defmt", "wifi", "wifi-eap", "esp-now", "sniffer", "smoltcp/proto-ipv4", "smoltcp/proto-ipv6"], if = 'chip_has("wifi")' },
-    { features = ["esp-hal/unstable", "esp-hal/rt", "unstable", "ble"], if = 'chip_has("bt")' },
-    { features = ["esp-hal/unstable", "esp-hal/rt", "unstable", "ieee802154"], if = 'chip_has("ieee802154")' },
-    { features = ["esp-hal/unstable", "esp-hal/rt", "unstable", "defmt", "wifi", "wifi-eap", "esp-now", "sniffer", "smoltcp/proto-ipv4", "smoltcp/proto-ipv6", "ble", "coex"], if = 'chip_has("wifi") && chip_has("bt")' },
-    { features = ["esp-hal/unstable", "esp-hal/rt", "wifi-eap", "unstable"], if = 'chip_has("wifi")' },
+  { features = [
+    "esp-hal/unstable",
+    "esp-hal/rt",
+  ] },
+  { features = [
+    "esp-hal/unstable",
+    "esp-hal/rt",
+    "defmt",
+  ] },
+  { features = [
+    "esp-hal/unstable",
+    "esp-hal/rt",
+    "wifi",
+  ], if = 'chip_has("wifi")' },
+  { features = [
+    "esp-hal/unstable",
+    "esp-hal/rt",
+    "unstable",
+    "defmt",
+    "wifi",
+    "wifi-eap",
+    "esp-now",
+    "sniffer",
+    "smoltcp/proto-ipv4",
+    "smoltcp/proto-ipv6",
+  ], if = 'chip_has("wifi")' },
+  { features = [
+    "esp-hal/unstable",
+    "esp-hal/rt",
+    "unstable",
+    "ble",
+  ], if = 'chip_has("bt")' },
+  { features = [
+    "esp-hal/unstable",
+    "esp-hal/rt",
+    "unstable",
+    "ieee802154",
+  ], if = 'chip_has("ieee802154")' },
+  { features = [
+    "esp-hal/unstable",
+    "esp-hal/rt",
+    "unstable",
+    "defmt",
+    "wifi",
+    "wifi-eap",
+    "esp-now",
+    "sniffer",
+    "smoltcp/proto-ipv4",
+    "smoltcp/proto-ipv6",
+    "ble",
+    "coex",
+  ], if = 'chip_has("wifi") && chip_has("bt")' },
+  { features = [
+    "esp-hal/unstable",
+    "esp-hal/rt",
+    "wifi-eap",
+    "unstable",
+  ], if = 'chip_has("wifi")' },
 ]
 clippy-configs = [
-    { features = ["esp-hal/unstable", "esp-hal/rt"] },
-    { features = ["esp-hal/unstable", "esp-hal/rt", "wifi", "wifi-eap", "unstable"], if = 'chip_has("wifi")', append = [
-        { features = ["ble"], if = 'chip_has("bt")' },
-    ] },
+  { features = [
+    "esp-hal/unstable",
+    "esp-hal/rt",
+  ] },
+  { features = [
+    "esp-hal/unstable",
+    "esp-hal/rt",
+    "wifi",
+    "wifi-eap",
+    "unstable",
+  ], if = 'chip_has("wifi")', append = [
+    { features = [
+      "ble",
+    ], if = 'chip_has("bt")' },
+  ] },
 ]
 
 [lib]
 bench = false
-test  = false
+test = false
 
 [dependencies]
-esp-hal = { version = "1.0.0-rc.0", path = "../esp-hal", default-features = false, features = ["requires-unstable"] }
-cfg-if = "1.0.0"
+esp-hal = { version = "1.0.0-rc.0", path = "../esp-hal", default-features = false, features = [
+  "requires-unstable",
+] }
+cfg-if = "1"
 portable-atomic = { version = "1.11.0", default-features = false }
 enumset = { version = "1.1.6", default-features = false, optional = true }
 
@@ -52,8 +135,10 @@ esp-radio-preempt-driver = { version = "0.0.1", path = "../esp-radio-preempt-dri
 instability = "0.3.9"
 
 # Unstable dependencies that are not (strictly) part of the public API
-allocator-api2 = { version = "0.3.0", default-features = false, features = ["alloc"] }
-document-features  = "0.2.11"
+allocator-api2 = { version = "0.3.0", default-features = false, features = [
+  "alloc",
+] }
+document-features = "0.2.11"
 esp-alloc = { version = "0.8.0", path = "../esp-alloc", optional = true }
 esp-config = { version = "0.5.0", path = "../esp-config" }
 esp-metadata-generated = { version = "0.1.0", path = "../esp-metadata-generated" }
@@ -70,7 +155,9 @@ ieee802154 = { version = "0.6.1", optional = true }
 heapless = "0.9"
 
 # Optional dependencies enabling ecosystem features
-serde = { version = "1.0.218", default-features = false, features = ["derive"], optional = true }
+serde = { version = "1.0.218", default-features = false, features = [
+  "derive",
+], optional = true }
 smoltcp = { version = "0.12.0", default-features = false, features = [
   "medium-ethernet",
   "socket-raw",
@@ -84,7 +171,9 @@ log-04 = { package = "log", version = "0.4.27", optional = true }
 
 [build-dependencies]
 esp-config = { version = "0.5.0", path = "../esp-config", features = ["build"] }
-esp-metadata-generated = { version = "0.1.0", path = "../esp-metadata-generated", features = ["build-script"] }
+esp-metadata-generated = { version = "0.1.0", path = "../esp-metadata-generated", features = [
+  "build-script",
+] }
 
 [features]
 default = ["esp-alloc"]
@@ -200,7 +289,16 @@ serde = ["dep:serde", "enumset?/serde"]
 log-04 = ["dep:log-04", "esp-hal/log-04", "esp-wifi-sys/log"]
 
 ## Enable logging output using `defmt` and implement `defmt::Format` on certain types.
-defmt = ["dep:defmt", "smoltcp?/defmt", "esp-hal/defmt", "bt-hci?/defmt", "esp-wifi-sys/defmt", "enumset/defmt", "heapless/defmt", "esp-sync/defmt"]
+defmt = [
+  "dep:defmt",
+  "smoltcp?/defmt",
+  "esp-hal/defmt",
+  "bt-hci?/defmt",
+  "esp-wifi-sys/defmt",
+  "enumset/defmt",
+  "heapless/defmt",
+  "esp-sync/defmt",
+]
 
 #! ### Unstable APIs
 #! Unstable APIs are drivers and features that are not yet ready for general use.
@@ -218,13 +316,7 @@ requires-unstable = []
 __docs_build = []
 
 [package.metadata.docs.rs]
-features = [
-  "esp32c3",
-  "wifi",
-  "ble",
-  "coex",
-  "esp-hal/default",
-]
+features = ["esp32c3", "wifi", "ble", "coex", "esp-hal/default"]
 default-target = "riscv32imc-unknown-none-elf"
 
 # `esp-alloc` and `xtensa-lx-rt` are hidden behind features so `cargo machete` incorrectly marks it as unused.
